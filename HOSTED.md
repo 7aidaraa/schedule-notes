@@ -24,3 +24,8 @@ insert into teachers(name,department) values ('الاسم','القسم') on conf
 delete from teachers where name='الاسم';
 update teachers set is_head = true where name='الاسم';   -- تعيين رئيس قسم
 ```
+
+## الهوية البصرية
+- الشعار: مستخرج من «جدول المعلّمين.pdf» (Drive) → `web/assets/logo.png` و`logo-white.png` و`icon.png`.
+- الألوان من الشعار: كحلي `#0b3a5a`، أزرق `#155375`، سماوي `#227ba7`، وذهبي `#c9962e` للتمييز.
+- الخط: IBM Plex Sans Arabic محفوظ داخل الموقع (`web/assets/fonts`).
