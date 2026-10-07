@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ميزانيات وملاحظات الجدول المدرسي · ثانوية أحمد البشر الرومي</title>
+<title>ملاحظات الجدول</title>
 <meta name="theme-color" content="#0b3a5a">
 <link rel="icon" href="assets/icon.png">
 <link rel="apple-touch-icon" href="assets/icon.png">
@@ -11,7 +11,7 @@
 <style>
   @font-face { font-family:"Plex Arabic"; font-weight:400; font-display:swap; src:url(assets/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2) format("woff2"); }
   @font-face { font-family:"Plex Arabic"; font-weight:700; font-display:swap; src:url(assets/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2) format("woff2"); }
-  /* Palette taken from the school logo (navy → blue), with a gold accent. */
+  /* Navy/blue palette with a gold accent. */
   :root {
     --navy:#0b3a5a; --blue:#155375; --sky:#227ba7; --gold:#c9962e; --gold-soft:#f6ecd6;
     --bg:#eef3f7; --card:#fff; --ink:#132433; --mute:#5b6b7b; --line:#d6e0e8;
@@ -24,9 +24,9 @@
     background:
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 56 56'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.07'%3E%3Crect x='14' y='14' width='28' height='28'/%3E%3Crect x='14' y='14' width='28' height='28' transform='rotate(45 28 28)'/%3E%3C/g%3E%3C/svg%3E"),
       linear-gradient(135deg, var(--navy), var(--blue) 60%, var(--sky)); }
-  .hero img { width:min(260px, 70vw); height:auto; display:block; margin:0 auto 6px; filter:drop-shadow(0 2px 6px rgba(0,0,0,.25)); }
-  .hero .school { font-size:15px; opacity:.85; letter-spacing:.3px; }
-  .hero h1 { margin:6px 0 0; font-size:clamp(21px, 5vw, 28px); font-weight:700; color:#f3d48f; }
+  .hero .mark { width:64px; height:64px; display:block; margin:4px auto 8px; filter:drop-shadow(0 2px 6px rgba(0,0,0,.25)); }
+  .hero .school { font-size:15px; opacity:.85; margin-top:4px; }
+  .hero h1 { margin:0; font-size:clamp(21px, 5vw, 28px); font-weight:700; color:#f3d48f; }
   main { max-width:760px; margin:-40px auto 0; padding:0 16px 24px; position:relative; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:18px; margin-bottom:14px; box-shadow:var(--shadow); }
   .card > h2, .item h2 { display:flex; align-items:center; gap:8px; font-size:17px; margin:0 0 4px; color:var(--navy); }
@@ -76,14 +76,14 @@
 </head>
 <body>
 <header class="hero">
-  <img src="assets/logo-white.png" alt="شعار ثانوية أحمد البشر الرومي" width="282" height="142">
-  <div class="school">ثانوية أحمد البشر الرومي · منطقة العاصمة التعليمية</div>
-  <h1>ميزانيات وملاحظات الجدول المدرسي</h1>
+  <svg class="mark" viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="9" width="36" height="33" rx="6" fill="none" stroke="#fff" stroke-width="2.5"/><path d="M6 18h36M16 5v8M32 5v8" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><rect x="12" y="23" width="7" height="6" rx="1.5" fill="#f3d48f"/><rect x="21" y="23" width="7" height="6" rx="1.5" fill="#fff" opacity=".55"/><rect x="30" y="23" width="7" height="6" rx="1.5" fill="#fff" opacity=".55"/><rect x="12" y="32" width="7" height="6" rx="1.5" fill="#fff" opacity=".55"/><rect x="21" y="32" width="7" height="6" rx="1.5" fill="#fff" opacity=".55"/></svg>
+  <h1>ملاحظات الجدول</h1>
+  <div class="school">أرسل ملاحظتك على الجدول، وستصلك المتابعة عبر واتساب</div>
 </header>
 <main>
   <section id="login" class="card">
     <h2>الدخول</h2>
-    <p class="lead">أدخل كلمة السر التي وصلتك من الإدارة.</p>
+    <p class="lead">أدخل كلمة السر التي وصلتك.</p>
     <label for="pass">كلمة السر</label>
     <input id="pass" type="password" autocomplete="off">
     <div class="row"><button id="loginBtn">دخول</button></div>
@@ -130,7 +130,6 @@
     </div>
   </section>
 </main>
-<footer>ثانوية أحمد البشر الرومي · وزارة التربية — دولة الكويت</footer>
 
 <script src="app.js"></script>
 </body>
