@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>طلبات المعلمين</title>
+<style>
+  :root { --bg:#f4f6f8; --card:#fff; --ink:#1d2733; --mute:#6b7785; --line:#dde3ea; --pri:#1f6feb; --ok:#1a7f37; --err:#c62828; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.6 "Segoe UI", Tahoma, sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:24px 16px; }
+  h1 { font-size:22px; margin:0 0 16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:12px; }
+  label { display:block; font-weight:600; margin:12px 0 4px; }
+  input, textarea { width:100%; padding:10px; border:1px solid var(--line); border-radius:8px; font:inherit; }
+  textarea { min-height:90px; resize:vertical; }
+  button { padding:10px 18px; border:0; border-radius:8px; background:var(--pri); color:#fff; font:inherit; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--pri); border:1px solid var(--pri); }
+  button.ok { background:var(--ok); }
+  button:disabled { opacity:.6; cursor:wait; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px; }
+  .msg { margin-top:10px; min-height:1.6em; }
+  .msg.err { color:var(--err); } .msg.ok { color:var(--ok); }
+  .meta { color:var(--mute); font-size:14px; }
+  .done { opacity:.65; border-color:var(--ok); }
+  .badge { display:inline-block; padding:2px 10px; border-radius:99px; font-size:13px; background:#fff3cd; }
+  .done .badge { background:#d1f2dc; }
+  .field b { color:var(--mute); font-weight:600; }
+  .field p { margin:2px 0 8px; white-space:pre-wrap; }
+  .preview img { max-width:100%; border-radius:8px; margin-top:8px; }
+  .hidden { display:none; }
+  a { color:var(--pri); }
+</style>
+</head>
+<body>
+<main>
+  <h1>طلبات المعلمين</h1>
+
+  <section id="login" class="card">
+    <label for="pass">كلمة السر</label>
+    <input id="pass" type="password" autocomplete="off">
+    <div class="row"><button id="loginBtn">دخول</button></div>
+    <div id="loginMsg" class="msg"></div>
+  </section>
+
+  <section id="teacher" class="card hidden">
+    <label for="name">الاسم الرباعي</label>
+    <input id="name" maxlength="120">
+    <label for="request">الطلب</label>
+    <textarea id="request" maxlength="3000"></textarea>
+    <label for="reason">سبب الطلب</label>
+    <textarea id="reason" maxlength="3000"></textarea>
+    <label for="file">مرفق (اختياري): PDF أو صورة أو Word، حتى 10 ميغابايت</label>
+    <input id="file" type="file" accept=".pdf,.doc,.docx,image/*">
+    <div class="row"><button id="sendBtn">إرسال الطلب</button></div>
+    <div id="sendMsg" class="msg"></div>
+  </section>
+
+  <section id="admin" class="hidden">
+    <div class="row" style="margin-bottom:12px">
+      <button id="refreshBtn" class="ghost">تحديث</button>
+      <label style="margin:0;font-weight:400"><input id="hideDone" type="checkbox" style="width:auto"> إخفاء المنجزة</label>
+      <span id="count" class="meta"></span>
+    </div>
+    <div id="list"></div>
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
