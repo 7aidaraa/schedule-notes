@@ -55,12 +55,22 @@ Deno.serve(async (req) => {
   if (!role) return fail("كلمة السر غير صحيحة", 401);
   const action = body.action;
 
-  if (action === "login") return json({ role });
+  if (action === "login") {
+    if (role !== "teacher") return json({ role });
+    // Department → teacher names for the form's dropdowns (only after a valid password).
+    const { data } = await db.from("teachers").select("name,department").order("department").order("name");
+    return json({ role, teachers: data ?? [] });
+  }
 
   if (action === "submit") {
     if (role !== "teacher") return fail("غير مصرح", 403);
     const name = str(body.name, 120), request = str(body.request, 3000), reason = str(body.reason, 3000);
-    if (!name || !request || !reason) return fail("جميع الحقول مطلوبة");
+    const department = str(body.department, 80);
+    const kind = body.kind === "head" ? "head" : "teacher";
+    const phone = str(body.phone, 20).replace(/[\s-]/g, "").replace(/^(\+|00)965/, "");
+    if (!name || !department || !request || !reason || !phone) return fail("جميع الحقول مطلوبة");
+    if (!/^[2569]\d{7}$/.test(phone)) return fail("رقم الهاتف يجب أن يكون 8 أرقام");
+    if (body.file && kind !== "head") return fail("المرفقات لرؤساء الأقسام فقط");
 
     let file_path = null, file_name = null, file_type = null;
     if (body.file) {
@@ -77,7 +87,7 @@ Deno.serve(async (req) => {
       file_name = fname;
       file_type = type;
     }
-    const { error } = await db.from("requests").insert({ name, request, reason, file_path, file_name, file_type });
+    const { error } = await db.from("requests").insert({ name, department, role: kind, phone, request, reason, file_path, file_name, file_type });
     if (error) return fail("تعذر حفظ الطلب، حاول مجدداً", 500);
     return json({ ok: true });
   }

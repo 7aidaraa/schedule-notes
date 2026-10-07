@@ -29,6 +29,15 @@
   .field p { margin:2px 0 8px; white-space:pre-wrap; }
   .preview img { max-width:100%; border-radius:8px; margin-top:8px; }
   .hidden { display:none; }
+  .seg { display:inline-flex; margin-top:14px; border:1px solid var(--pri); border-radius:8px; overflow:hidden; }
+  .seg label { margin:0; font-weight:600; }
+  .seg input { position:absolute; opacity:0; width:auto; }
+  .seg span { display:block; padding:8px 20px; color:var(--pri); cursor:pointer; }
+  .seg input:checked + span { background:var(--pri); color:#fff; }
+  .seg input:focus-visible + span { outline:2px solid var(--ink); outline-offset:-4px; }
+  .item h2 { font-size:17px; margin:0; }
+  .item .file { display:none; }
+  .head .item .file { display:block; }
   a { color:var(--pri); }
 </style>
 </head>
@@ -43,17 +52,27 @@
     <div id="loginMsg" class="msg"></div>
   </section>
 
-  <section id="teacher" class="card hidden">
-    <label for="name">الاسم الرباعي</label>
-    <input id="name" maxlength="120">
-    <label for="request">الطلب</label>
-    <textarea id="request" maxlength="3000"></textarea>
-    <label for="reason">سبب الطلب</label>
-    <textarea id="reason" maxlength="3000"></textarea>
-    <label for="file">مرفق (اختياري): PDF أو صورة أو Word، حتى 10 ميغابايت</label>
-    <input id="file" type="file" accept=".pdf,.doc,.docx,image/*">
-    <div class="row"><button id="sendBtn">إرسال الطلب</button></div>
-    <div id="sendMsg" class="msg"></div>
+  <section id="teacher" class="hidden">
+    <div class="card">
+      <label for="dept">القسم العلمي</label>
+      <input id="dept" list="deptList" maxlength="80" autocomplete="off" placeholder="اختر من القائمة أو اكتب">
+      <datalist id="deptList"></datalist>
+      <label for="name">الاسم</label>
+      <input id="name" list="nameList" maxlength="120" autocomplete="off" placeholder="اختر من القائمة أو اكتب">
+      <datalist id="nameList"></datalist>
+      <div class="seg" role="radiogroup" aria-label="الصفة">
+        <label><input type="radio" name="kind" value="teacher" checked><span>معلم</span></label>
+        <label><input type="radio" name="kind" value="head"><span>رئيس قسم</span></label>
+      </div>
+    </div>
+    <div id="items"></div>
+    <div class="card">
+      <button id="addBtn" class="ghost" type="button">+ إضافة طلب آخر</button>
+      <label for="phone">رقم الهاتف</label>
+      <input id="phone" type="tel" inputmode="numeric" maxlength="16" dir="ltr" placeholder="9xxxxxxx">
+      <div class="row"><button id="sendBtn">إرسال</button></div>
+      <div id="sendMsg" class="msg"></div>
+    </div>
   </section>
 
   <section id="admin" class="hidden">
