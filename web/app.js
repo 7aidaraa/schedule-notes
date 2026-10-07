@@ -155,12 +155,24 @@ function field(label, text) {
   return el('div', { className: 'field' }, el('b', { textContent: label }), el('p', { textContent: text || '—' }));
 }
 
+function delBtn(r) {
+  const b = el('button', { className: 'del', type: 'button', textContent: '🗑️', title: 'حذف الطلب', ariaLabel: 'حذف الطلب' });
+  b.onclick = async () => {
+    if (!confirm('حذف طلب «' + r.request.slice(0, 40) + '» من ' + r.name + ' نهائياً؟')) return;
+    b.disabled = true;
+    try { await call('delete', { id: r.id }); ROWS = ROWS.filter(x => x.id !== r.id); render(); }
+    catch (e) { alert(e); b.disabled = false; }
+  };
+  return b;
+}
+
 function card(r) {
   const c = el('div', { className: 'card' + (r.done ? ' done' : '') });
   c.append(
     el('div', { className: 'row', style: 'margin-top:0;justify-content:space-between' },
       el('strong', { textContent: r.name }),
-      el('span', { className: 'badge', textContent: r.done ? 'تم ✓' : 'جديد' })),
+      el('div', { className: 'row', style: 'margin-top:0' },
+        el('span', { className: 'badge', textContent: r.done ? 'تم ✓' : 'جديد' }), delBtn(r))),
     el('div', { className: 'meta', textContent: [r.role === 'head' ? 'رئيس قسم' : 'معلم', r.department, new Date(r.created_at).toLocaleString('ar-KW')].filter(Boolean).join(' · ') }),
     field('الطلب', r.request),
     field('السبب', r.reason));

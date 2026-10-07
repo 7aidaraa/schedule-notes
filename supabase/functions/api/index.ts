@@ -120,6 +120,14 @@ Deno.serve(async (req) => {
     const { error } = await db.from("requests").update({ note: str(body.note, 3000) }).eq("id", id);
     return error ? fail("تعذر الحفظ", 500) : json({ ok: true });
   }
+  if (action === "delete") {
+    // Removes the request and its attached file; the phone book keeps the sender's number.
+    const { data: row } = await db.from("requests").select("file_path").eq("id", id).maybeSingle();
+    if (!row) return fail("الطلب غير موجود", 404);
+    if (row.file_path) await db.storage.from(BUCKET).remove([row.file_path]);
+    const { error } = await db.from("requests").delete().eq("id", id);
+    return error ? fail("تعذر الحذف", 500) : json({ ok: true });
+  }
   if (action === "file") {
     // Only files referenced by a request row; short-lived signed URLs.
     const { data: row } = await db.from("requests").select("file_path,file_name").eq("id", id).single();
