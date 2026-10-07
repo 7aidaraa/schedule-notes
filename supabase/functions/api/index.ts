@@ -10,6 +10,8 @@ const TYPES: Record<string, string> = {
   heic: "image/heic", heif: "image/heif",
   doc: "application/msword",
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 };
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -58,7 +60,7 @@ Deno.serve(async (req) => {
   if (action === "login") {
     if (role !== "teacher") return json({ role });
     // Department → teacher names for the form's dropdowns (only after a valid password).
-    const { data } = await db.from("teachers").select("name,department").order("department").order("name");
+    const { data } = await db.from("teachers").select("name,department,is_head").order("department").order("name");
     return json({ role, teachers: data ?? [] });
   }
 
@@ -66,18 +68,20 @@ Deno.serve(async (req) => {
     if (role !== "teacher") return fail("غير مصرح", 403);
     const name = str(body.name, 120), request = str(body.request, 3000), reason = str(body.reason, 3000);
     const department = str(body.department, 80);
-    const kind = body.kind === "head" ? "head" : "teacher";
     const phone = str(body.phone, 20).replace(/[\s-]/g, "").replace(/^(\+|00)965/, "");
     if (!name || !department || !request || !reason || !phone) return fail("جميع الحقول مطلوبة");
     if (!/^[2569]\d{7}$/.test(phone)) return fail("رقم الهاتف يجب أن يكون 8 أرقام");
-    if (body.file && kind !== "head") return fail("المرفقات لرؤساء الأقسام فقط");
+    // Role comes from the staff directory, never from the form.
+    const { data: staff } = await db.from("teachers").select("is_head").eq("name", name).maybeSingle();
+    const kind = staff?.is_head ? "head" : "teacher";
+    if (body.file && kind !== "head") return fail("ميزانية القسم يرفعها رئيس القسم فقط");
 
     let file_path = null, file_name = null, file_type = null;
     if (body.file) {
       const fname = str(body.file.name, 150) || "مرفق";
       const ext = (fname.split(".").pop() || "").toLowerCase();
       const type = TYPES[ext];
-      if (!type) return fail("المرفق يجب أن يكون PDF أو صورة أو ملف Word");
+      if (!type) return fail("الملف يجب أن يكون PDF أو صورة أو Word أو Excel");
       const bytes = b64ToBytes(String(body.file.data || ""));
       if (!bytes.length) return fail("المرفق فارغ");
       if (bytes.length > MAX_BYTES) return fail("حجم المرفق يتجاوز 10 ميغابايت");
@@ -89,6 +93,7 @@ Deno.serve(async (req) => {
     }
     const { error } = await db.from("requests").insert({ name, department, role: kind, phone, request, reason, file_path, file_name, file_type });
     if (error) return fail("تعذر حفظ الطلب، حاول مجدداً", 500);
+    await db.from("contacts").upsert({ name, department, role: kind, phone, updated_at: new Date().toISOString() });
     return json({ ok: true });
   }
 
@@ -97,6 +102,12 @@ Deno.serve(async (req) => {
   if (action === "list") {
     const { data, error } = await db.from("requests").select("*").order("created_at", { ascending: false });
     if (error) return fail("تعذر جلب الطلبات", 500);
+    return json({ rows: data });
+  }
+
+  if (action === "contacts") {
+    const { data, error } = await db.from("contacts").select("*").order("department").order("name");
+    if (error) return fail("تعذر جلب الأرقام", 500);
     return json({ rows: data });
   }
 

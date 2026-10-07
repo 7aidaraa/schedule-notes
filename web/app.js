@@ -1,6 +1,6 @@
 const API = 'https://zywdedrtcaolsosufoae.supabase.co/functions/v1/api';
 const MAX = 10 * 1024 * 1024;
-const EXTS = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif', 'doc', 'docx'];
+const EXTS = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif', 'doc', 'docx', 'xls', 'xlsx'];
 let PASS = '';
 let ROWS = [];
 const $ = id => document.getElementById(id);
@@ -59,21 +59,26 @@ function setupForm(teachers) {
   fillNames();
   $('dept').oninput = () => {
     fillNames();
-    const t = TEACHERS.find(t => t.name === $('name').value.trim());
+    const t = person();
     if (t && t.department !== $('dept').value.trim()) $('name').value = '';
+    showRole();
   };
   $('name').oninput = () => {
-    const t = TEACHERS.find(t => t.name === $('name').value.trim());
+    const t = person();
     if (t && !$('dept').value.trim()) { $('dept').value = t.department; fillNames(); }
+    showRole();
   };
-  document.querySelectorAll('[name=kind]').forEach(r => r.onchange = applyKind);
+  showRole();
   if (!$('items').children.length) addItem();
 }
-const kind = () => document.querySelector('[name=kind]:checked').value;
-function applyKind() {
-  const head = kind() === 'head';
-  $('teacher').classList.toggle('head', head);
-  if (!head) $('items').querySelectorAll('input[type=file]').forEach(f => f.value = '');
+// The role is known from the staff directory: heads of department get the budget field.
+const person = () => TEACHERS.find(t => t.name === $('name').value.trim());
+const isHead = () => !!(person() || {}).is_head;
+function showRole() {
+  const t = person();
+  $('roleTag').replaceChildren(...(t ? [t.is_head ? el('b', { textContent: 'رئيس قسم ' + t.department }) : 'معلم'] : []));
+  $('budget').classList.toggle('hidden', !isHead());
+  if (!isHead()) $('budgetFile').value = '';
 }
 
 // Each request is its own card with its own reason (and attachment for heads of department).
@@ -84,10 +89,7 @@ function addItem() {
   box.append(
     el('div', { className: 'row', style: 'margin-top:0;justify-content:space-between' }, el('h2'), remove),
     el('label', { textContent: 'الطلب' }), el('textarea', { className: 'req', maxLength: 3000 }),
-    el('label', { textContent: 'سبب الطلب' }), el('textarea', { className: 'why', maxLength: 3000 }),
-    el('div', { className: 'file' },
-      el('label', { textContent: 'مرفق (اختياري): PDF أو صورة أو Word، حتى 10 ميغابايت' }),
-      el('input', { type: 'file', accept: '.pdf,.doc,.docx,image/*' })));
+    el('label', { textContent: 'سبب الطلب' }), el('textarea', { className: 'why', maxLength: 3000 }));
   $('items').append(box);
   renumber();
 }
@@ -104,18 +106,20 @@ const digits = v => v.replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)
 
 $('sendBtn').onclick = async () => {
   const out = $('sendMsg'), btn = $('sendBtn');
-  const base = { name: $('name').value.trim(), department: $('dept').value.trim(), kind: kind(),
+  const base = { name: $('name').value.trim(), department: $('dept').value.trim(),
     phone: digits($('phone').value).replace(/[\s-]/g, '').replace(/^(\+|00)965/, '') };
   const items = [...$('items').children].map(b => ({
-    box: b, request: b.querySelector('.req').value.trim(), reason: b.querySelector('.why').value.trim(),
-    file: base.kind === 'head' ? b.querySelector('input[type=file]').files[0] : null }));
+    box: b, request: b.querySelector('.req').value.trim(), reason: b.querySelector('.why').value.trim() }));
+  // The budget travels once, with the first request.
+  const budget = isHead() ? $('budgetFile').files[0] : null;
+  if (items[0]) items[0].file = budget;
   if (!base.department || !base.name || !base.phone || items.some(i => !i.request || !i.reason))
     return msg(out, 'جميع الحقول مطلوبة، ولكل طلب سببه', 'err');
   if (!/^[2569]\d{7}$/.test(base.phone)) return msg(out, 'رقم الهاتف يجب أن يكون 8 أرقام', 'err');
   for (const i of items) {
     if (!i.file) continue;
     if (i.file.size > MAX) return msg(out, 'حجم المرفق يتجاوز 10 ميغابايت', 'err');
-    if (!EXTS.includes(i.file.name.split('.').pop().toLowerCase())) return msg(out, 'المرفق يجب أن يكون PDF أو صورة أو ملف Word', 'err');
+    if (!EXTS.includes(i.file.name.split('.').pop().toLowerCase())) return msg(out, 'الملف يجب أن يكون PDF أو صورة أو Word أو Excel', 'err');
   }
   btn.disabled = true;
   // One request per call: each becomes its own row, and a failure keeps only the unsent ones on screen.
@@ -128,7 +132,7 @@ $('sendBtn').onclick = async () => {
       await call('submit', data);
       i.box.remove(); sent++;
     }
-    $('phone').value = '';
+    $('phone').value = ''; $('budgetFile').value = '';
     addItem();
     msg(out, sent > 1 ? 'تم إرسال جميع الطلبات (' + sent + ') بنجاح ✓' : 'تم إرسال طلبك بنجاح ✓', 'ok');
   } catch (e) {
@@ -160,8 +164,8 @@ function card(r) {
     el('div', { className: 'meta', textContent: [r.role === 'head' ? 'رئيس قسم' : 'معلم', r.department, new Date(r.created_at).toLocaleString('ar-KW')].filter(Boolean).join(' · ') }),
     field('الطلب', r.request),
     field('السبب', r.reason));
-  if (r.phone) c.append(el('div', { className: 'field' }, el('b', { textContent: 'الهاتف' }),
-    el('p', {}, el('a', { href: 'tel:+965' + r.phone, textContent: r.phone, dir: 'ltr' }))));
+  if (r.phone) c.append(el('div', { className: 'row', style: 'margin-top:0' }, waBtn(r.phone, r.name, r.request),
+    el('a', { href: 'tel:+965' + r.phone, textContent: r.phone, dir: 'ltr' })));
 
   if (r.file_path) {
     const preview = el('div', { className: 'preview' });
@@ -189,7 +193,7 @@ function card(r) {
       catch (e) { fmsg.textContent = e; }
       dlBtn.disabled = false;
     };
-    c.append(el('div', { className: 'field' }, el('b', { textContent: 'المرفق: ' + r.file_name })),
+    c.append(el('div', { className: 'field' }, el('b', { textContent: 'ميزانية القسم: ' + r.file_name })),
       el('div', { className: 'row', style: 'margin-top:0' }, viewBtn, dlBtn, fmsg), preview);
   }
 
@@ -211,6 +215,33 @@ function card(r) {
   };
   c.append(el('label', { textContent: 'ملاحظاتي' }), note, el('div', { className: 'row' }, saveBtn, doneBtn, nmsg));
   return c;
+}
+
+// Opens a WhatsApp chat with the sender; the message quotes the request when there is one.
+function waBtn(phone, name, request) {
+  const text = 'السلام عليكم أ. ' + name.split(' ')[0] + (request ? '، بخصوص طلبك: «' + request.slice(0, 80) + '»' : '');
+  return el('a', { className: 'wa', href: 'https://wa.me/965' + phone + '?text=' + encodeURIComponent(text), target: '_blank', rel: 'noopener', textContent: 'واتساب' });
+}
+
+// ---- Phone book: last number each sender used, kept even after requests are deleted ----
+function tab(book) {
+  $('tabBook').classList.toggle('on', book); $('tabReq').classList.toggle('on', !book);
+  $('book').classList.toggle('hidden', !book); $('reqView').classList.toggle('hidden', book);
+  if (book) loadBook();
+}
+$('tabReq').onclick = () => tab(false);
+$('tabBook').onclick = () => tab(true);
+async function loadBook() {
+  $('bookList').replaceChildren(el('div', { className: 'meta', textContent: 'جارٍ التحميل...' }));
+  try {
+    const rows = (await call('contacts')).rows;
+    $('bookList').replaceChildren(...(rows.length ? rows.map(c => el('div', { className: 'card contact' },
+      el('div', {}, el('strong', { textContent: c.name }),
+        el('div', { className: 'meta', textContent: [c.role === 'head' ? 'رئيس قسم' : 'معلم', c.department].filter(Boolean).join(' · ') })),
+      el('div', { className: 'row', style: 'margin-top:0' }, waBtn(c.phone, c.name),
+        el('a', { href: 'tel:+965' + c.phone, textContent: c.phone, dir: 'ltr' }))))
+      : [el('div', { className: 'card meta', textContent: 'لا توجد أرقام بعد؛ تُحفظ تلقائياً مع كل طلب' })]));
+  } catch (e) { $('bookList').replaceChildren(el('div', { className: 'card meta', textContent: e })); }
 }
 
 function render() {

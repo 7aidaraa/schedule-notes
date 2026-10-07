@@ -29,15 +29,13 @@
   .field p { margin:2px 0 8px; white-space:pre-wrap; }
   .preview img { max-width:100%; border-radius:8px; margin-top:8px; }
   .hidden { display:none; }
-  .seg { display:inline-flex; margin-top:14px; border:1px solid var(--pri); border-radius:8px; overflow:hidden; }
-  .seg label { margin:0; font-weight:600; }
-  .seg input { position:absolute; opacity:0; width:auto; }
-  .seg span { display:block; padding:8px 20px; color:var(--pri); cursor:pointer; }
-  .seg input:checked + span { background:var(--pri); color:#fff; }
-  .seg input:focus-visible + span { outline:2px solid var(--ink); outline-offset:-4px; }
+  #roleTag { margin-top:8px; }
+  #roleTag b { color:var(--ok); }
   .item h2 { font-size:17px; margin:0; }
-  .item .file { display:none; }
-  .head .item .file { display:block; }
+  a.wa { display:inline-block; padding:8px 16px; border-radius:8px; background:#25d366; color:#06301a; font-weight:700; text-decoration:none; }
+  .tabs { display:flex; gap:8px; margin-bottom:12px; }
+  .tabs button.on { background:var(--pri); color:#fff; }
+  .contact { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
   a { color:var(--pri); }
 </style>
 </head>
@@ -60,10 +58,11 @@
       <label for="name">الاسم</label>
       <input id="name" list="nameList" maxlength="120" autocomplete="off" placeholder="اختر من القائمة أو اكتب">
       <datalist id="nameList"></datalist>
-      <div class="seg" role="radiogroup" aria-label="الصفة">
-        <label><input type="radio" name="kind" value="teacher" checked><span>معلم</span></label>
-        <label><input type="radio" name="kind" value="head"><span>رئيس قسم</span></label>
-      </div>
+      <div id="roleTag" class="meta"></div>
+    </div>
+    <div id="budget" class="card hidden">
+      <label for="budgetFile">ميزانية القسم (اختياري): PDF أو صورة أو Word أو Excel، حتى 10 ميغابايت</label>
+      <input id="budgetFile" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*">
     </div>
     <div id="items"></div>
     <div class="card">
@@ -76,12 +75,16 @@
   </section>
 
   <section id="admin" class="hidden">
+    <div class="tabs"><button id="tabReq" class="ghost on">الطلبات</button><button id="tabBook" class="ghost">أرقام المعلمين</button></div>
+    <div id="book" class="hidden"><div id="bookList"></div></div>
+    <div id="reqView">
     <div class="row" style="margin-bottom:12px">
       <button id="refreshBtn" class="ghost">تحديث</button>
       <label style="margin:0;font-weight:400"><input id="hideDone" type="checkbox" style="width:auto"> إخفاء المنجزة</label>
       <span id="count" class="meta"></span>
     </div>
     <div id="list"></div>
+    </div>
   </section>
 </main>
 
