@@ -69,6 +69,7 @@
   .tabs button.on { background:linear-gradient(135deg, var(--navy), var(--blue)); color:#fff; }
   button.del { padding:4px 10px; background:#fff; border:1.5px solid #f0c9c6; border-radius:10px; font-size:17px; line-height:1.4; }
   button.del:hover { background:#fdecea; box-shadow:none; }
+  .mine { display:inline-block; padding:1px 10px; border-radius:99px; font-size:12px; font-weight:700; background:#e8f1f7; color:var(--blue); }
   .contact { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
   footer { text-align:center; color:var(--mute); font-size:13px; padding:8px 16px 28px; }
   @media (prefers-reduced-motion: reduce) { * { transition:none !important; } }
@@ -90,9 +91,23 @@
     <div id="loginMsg" class="msg"></div>
   </section>
 
+
+  <section id="admin" class="hidden">
+    <div class="tabs"><button id="tabReq" class="ghost on">الطلبات</button><button id="tabBook" class="ghost">أرقام المعلمين</button><button id="tabAdd" class="ghost">إضافة طلب</button></div>
+    <div id="book" class="hidden"><div id="bookList"></div></div>
+    <div id="reqView">
+    <div class="row" style="margin-bottom:12px">
+      <button id="refreshBtn" class="ghost">تحديث</button>
+      <label style="margin:0;font-weight:400"><input id="hideDone" type="checkbox" style="width:auto"> إخفاء المنجزة</label>
+      <span id="count" class="meta"></span>
+    </div>
+    <div id="list"></div>
+    </div>
+  </section>
+
   <section id="teacher" class="hidden">
     <div class="card">
-      <h2>بياناتك</h2>
+      <h2 id="whoTitle">بياناتك</h2>
       <label for="dept">القسم العلمي</label>
       <input id="dept" list="deptList" maxlength="80" autocomplete="off" placeholder="اختر من القائمة أو اكتب">
       <datalist id="deptList"></datalist>
@@ -114,19 +129,6 @@
       <input id="phone" type="tel" inputmode="numeric" maxlength="16" dir="ltr" placeholder="9xxxxxxx">
       <div class="row"><button id="sendBtn">إرسال</button></div>
       <div id="sendMsg" class="msg"></div>
-    </div>
-  </section>
-
-  <section id="admin" class="hidden">
-    <div class="tabs"><button id="tabReq" class="ghost on">الطلبات</button><button id="tabBook" class="ghost">أرقام المعلمين</button></div>
-    <div id="book" class="hidden"><div id="bookList"></div></div>
-    <div id="reqView">
-    <div class="row" style="margin-bottom:12px">
-      <button id="refreshBtn" class="ghost">تحديث</button>
-      <label style="margin:0;font-weight:400"><input id="hideDone" type="checkbox" style="width:auto"> إخفاء المنجزة</label>
-      <span id="count" class="meta"></span>
-    </div>
-    <div id="list"></div>
     </div>
   </section>
 </main>

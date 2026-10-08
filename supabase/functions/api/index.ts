@@ -58,14 +58,14 @@ Deno.serve(async (req) => {
   const action = body.action;
 
   if (action === "login") {
-    if (role !== "teacher") return json({ role });
     // Department → teacher names for the form's dropdowns (only after a valid password).
     const { data } = await db.from("teachers").select("name,department,is_head").order("department").order("name");
     return json({ role, teachers: data ?? [] });
   }
 
   if (action === "submit") {
-    if (role !== "teacher") return fail("غير مصرح", 403);
+    // The admin may also add a request on a teacher's behalf.
+    const byAdmin = role === "admin";
     const name = str(body.name, 120), request = str(body.request, 3000), reason = str(body.reason, 3000);
     const department = str(body.department, 80);
     const phone = str(body.phone, 20).replace(/[\s-]/g, "").replace(/^(\+|00)965/, "");
@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
       file_name = fname;
       file_type = type;
     }
-    const { error } = await db.from("requests").insert({ name, department, role: kind, phone, request, reason, file_path, file_name, file_type });
+    const { error } = await db.from("requests").insert({ name, department, role: kind, phone, request, reason, file_path, file_name, file_type, by_admin: byAdmin });
     if (error) return fail("تعذر حفظ الطلب، حاول مجدداً", 500);
     await db.from("contacts").upsert({ name, department, role: kind, phone, updated_at: new Date().toISOString() });
     return json({ ok: true });

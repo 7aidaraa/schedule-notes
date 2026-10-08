@@ -2,6 +2,8 @@ const API = 'https://zywdedrtcaolsosufoae.supabase.co/functions/v1/api';
 const MAX = 10 * 1024 * 1024;
 const EXTS = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif', 'doc', 'docx', 'xls', 'xlsx'];
 let PASS = '';
+let ROLE = '';
+let BOOK = null; // admin: phone book, used to pre-fill the number when adding a request for a teacher
 let ROWS = [];
 const $ = id => document.getElementById(id);
 
@@ -29,8 +31,10 @@ $('loginBtn').onclick = async () => {
     const { role, teachers } = await call('login');
     $('login').classList.add('hidden');
     $(role).classList.remove('hidden');
-    if (role === 'admin') loadList();
-    else setupForm(teachers || []);
+    ROLE = role;
+    if (role === 'admin') $('whoTitle').textContent = 'بيانات المعلم';
+    setupForm(teachers || []);
+    if (role === 'admin') { $('teacher').classList.add('hidden'); loadList(); }
   } catch (e) { msg($('loginMsg'), e, 'err'); }
   btn.disabled = false;
 };
@@ -67,6 +71,8 @@ function setupForm(teachers) {
     const t = person();
     if (t && !$('dept').value.trim()) { $('dept').value = t.department; fillNames(); }
     showRole();
+    const c = ROLE === 'admin' && BOOK && BOOK.find(c => c.name === $('name').value.trim());
+    if (c && !$('phone').value.trim()) $('phone').value = c.phone;
   };
   showRole();
   if (!$('items').children.length) addItem();
@@ -134,7 +140,8 @@ $('sendBtn').onclick = async () => {
     }
     $('phone').value = ''; $('budgetFile').value = '';
     addItem();
-    msg(out, sent > 1 ? 'تم إرسال جميع الطلبات (' + sent + ') بنجاح ✓' : 'تم إرسال طلبك بنجاح ✓', 'ok');
+    if (ROLE === 'admin') { $('name').value = ''; $('dept').value = ''; fillNames(); showRole(); BOOK = null; }
+    msg(out, ROLE === 'admin' ? 'تمت إضافة ' + (sent > 1 ? 'الطلبات (' + sent + ')' : 'الطلب') + ' ✓' : sent > 1 ? 'تم إرسال جميع الطلبات (' + sent + ') بنجاح ✓' : 'تم إرسال طلبك بنجاح ✓', 'ok');
   } catch (e) {
     renumber();
     msg(out, (sent ? 'أُرسل ' + sent + '، وتعذر إرسال الباقي: ' : '') + e, 'err');
@@ -170,7 +177,7 @@ function card(r) {
   const c = el('div', { className: 'card' + (r.done ? ' done' : '') });
   c.append(
     el('div', { className: 'row', style: 'margin-top:0;justify-content:space-between' },
-      el('strong', { textContent: r.name }),
+      el('strong', {}, r.name, r.by_admin ? el('span', { className: 'mine', textContent: ' أضفته أنت', style: 'margin-inline-start:6px' }) : null),
       el('div', { className: 'row', style: 'margin-top:0' },
         el('span', { className: 'badge', textContent: r.done ? 'تم ✓' : 'جديد' }), delBtn(r))),
     el('div', { className: 'meta', textContent: [r.role === 'head' ? 'رئيس قسم' : 'معلم', r.department, new Date(r.created_at).toLocaleString('ar-KW')].filter(Boolean).join(' · ') }),
@@ -236,13 +243,17 @@ function waBtn(phone, name, request) {
 }
 
 // ---- Phone book: last number each sender used, kept even after requests are deleted ----
-function tab(book) {
-  $('tabBook').classList.toggle('on', book); $('tabReq').classList.toggle('on', !book);
-  $('book').classList.toggle('hidden', !book); $('reqView').classList.toggle('hidden', book);
-  if (book) loadBook();
+function tab(which) {
+  $('tabReq').classList.toggle('on', which === 'req'); $('tabBook').classList.toggle('on', which === 'book'); $('tabAdd').classList.toggle('on', which === 'add');
+  $('reqView').classList.toggle('hidden', which !== 'req'); $('book').classList.toggle('hidden', which !== 'book');
+  $('teacher').classList.toggle('hidden', which !== 'add');
+  if (which === 'book') loadBook();
+  if (which === 'req') loadList();
+  if (which === 'add' && !BOOK) call('contacts').then(o => { BOOK = o.rows; }).catch(() => {});
 }
-$('tabReq').onclick = () => tab(false);
-$('tabBook').onclick = () => tab(true);
+$('tabReq').onclick = () => tab('req');
+$('tabBook').onclick = () => tab('book');
+$('tabAdd').onclick = () => tab('add');
 async function loadBook() {
   $('bookList').replaceChildren(el('div', { className: 'meta', textContent: 'جارٍ التحميل...' }));
   try {
