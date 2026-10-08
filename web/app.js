@@ -1,6 +1,9 @@
 const API = 'https://zywdedrtcaolsosufoae.supabase.co/functions/v1/api';
-const MAX = 10 * 1024 * 1024;
-const EXTS = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif', 'doc', 'docx', 'xls', 'xlsx'];
+const MAX = 10 * 1024 * 1024; // all files of a request together
+const MAX_FILES = 10;
+const EXTS = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif', 'doc', 'docx', 'xls', 'xlsx', 'zip', 'rar', '7z'];
+const ZIPS = ['zip', 'rar', '7z'];
+const ext = n => n.split('.').pop().toLowerCase();
 let PASS = '';
 let ROLE = '';
 let BOOK = null; // admin: phone book, used to pre-fill the number when adding a request for a teacher
@@ -50,6 +53,23 @@ function readFile(f) {
   });
 }
 
+// Budget files accumulate across picks (easier on phones than one multi-select).
+let FILES = [];
+const mb = b => (b / 1024 / 1024).toFixed(1) + ' ميغابايت';
+function showFiles() {
+  $('fileList').replaceChildren(...FILES.map(f => {
+    const x = el('button', { className: 'ghost', type: 'button', textContent: 'حذف' });
+    x.onclick = () => { FILES = FILES.filter(g => g !== f); showFiles(); };
+    return el('div', { className: 'file' }, el('span', {}, el('bdi', { textContent: f.name }), ' — ' + mb(f.size)), x);
+  }), ...(FILES.length > 1 ? [el('div', { className: 'meta', textContent: FILES.length + ' ملفات، المجموع ' + mb(FILES.reduce((a, f) => a + f.size, 0)) })] : []));
+}
+$('budgetFile').onchange = () => {
+  for (const f of $('budgetFile').files)
+    if (!FILES.some(g => g.name === f.name && g.size === f.size)) FILES.push(f);
+  $('budgetFile').value = '';
+  showFiles();
+};
+
 // Department and name accept free typing; the lists only suggest.
 let TEACHERS = [];
 const options = (list, values) => list.replaceChildren(...values.map(v => el('option', { value: v })));
@@ -84,7 +104,7 @@ function showRole() {
   const t = person();
   $('roleTag').replaceChildren(...(t ? [t.is_head ? el('b', { textContent: 'رئيس قسم ' + t.department }) : 'معلم'] : []));
   $('budget').classList.toggle('hidden', !isHead());
-  if (!isHead()) $('budgetFile').value = '';
+  if (!isHead()) { FILES = []; showFiles(); }
 }
 
 // Each request is its own card with its own reason (and attachment for heads of department).
@@ -117,16 +137,14 @@ $('sendBtn').onclick = async () => {
   const items = [...$('items').children].map(b => ({
     box: b, request: b.querySelector('.req').value.trim(), reason: b.querySelector('.why').value.trim() }));
   // The budget travels once, with the first request.
-  const budget = isHead() ? $('budgetFile').files[0] : null;
-  if (items[0]) items[0].file = budget;
+  if (items[0] && isHead()) items[0].files = FILES;
   if (!base.department || !base.name || !base.phone || items.some(i => !i.request || !i.reason))
     return msg(out, 'جميع الحقول مطلوبة، ولكل طلب سببه', 'err');
   if (!/^[2569]\d{7}$/.test(base.phone)) return msg(out, 'رقم الهاتف يجب أن يكون 8 أرقام', 'err');
-  for (const i of items) {
-    if (!i.file) continue;
-    if (i.file.size > MAX) return msg(out, 'حجم المرفق يتجاوز 10 ميغابايت', 'err');
-    if (!EXTS.includes(i.file.name.split('.').pop().toLowerCase())) return msg(out, 'الملف يجب أن يكون PDF أو صورة أو Word أو Excel', 'err');
-  }
+  if (FILES.length > MAX_FILES) return msg(out, 'الحد ' + MAX_FILES + ' ملفات', 'err');
+  if (FILES.reduce((a, f) => a + f.size, 0) > MAX) return msg(out, 'مجموع حجم المرفقات يتجاوز 10 ميغابايت', 'err');
+  const bad = FILES.find(f => !EXTS.includes(ext(f.name)));
+  if (bad) return msg(out, 'نوع الملف «' + bad.name + '» غير مقبول: PDF أو صورة أو Word أو Excel أو ملف مضغوط', 'err');
   btn.disabled = true;
   // One request per call: each becomes its own row, and a failure keeps only the unsent ones on screen.
   let sent = 0;
@@ -134,11 +152,11 @@ $('sendBtn').onclick = async () => {
     for (const i of items) {
       msg(out, 'جارٍ إرسال الطلب ' + (sent + 1) + ' من ' + items.length + '...');
       const data = { ...base, request: i.request, reason: i.reason };
-      if (i.file) data.file = { name: i.file.name, data: await readFile(i.file) };
+      if (i.files && i.files.length) data.files = await Promise.all(i.files.map(async f => ({ name: f.name, data: await readFile(f) })));
       await call('submit', data);
       i.box.remove(); sent++;
     }
-    $('phone').value = ''; $('budgetFile').value = '';
+    $('phone').value = ''; FILES = []; showFiles();
     addItem();
     if (ROLE === 'admin') { $('name').value = ''; $('dept').value = ''; fillNames(); showRole(); BOOK = null; }
     msg(out, ROLE === 'admin' ? 'تمت إضافة ' + (sent > 1 ? 'الطلبات (' + sent + ')' : 'الطلب') + ' ✓' : sent > 1 ? 'تم إرسال جميع الطلبات (' + sent + ') بنجاح ✓' : 'تم إرسال طلبك بنجاح ✓', 'ok');
@@ -186,35 +204,10 @@ function card(r) {
   if (r.phone) c.append(el('div', { className: 'row', style: 'margin-top:0' }, waBtn(r.phone, r.name, r.request),
     el('a', { href: 'tel:+965' + r.phone, textContent: r.phone, dir: 'ltr' })));
 
-  if (r.file_path) {
-    const preview = el('div', { className: 'preview' });
-    const fmsg = el('span', { className: 'meta' });
-    const isImg = (r.file_type || '').startsWith('image/');
-    const getUrls = () => call('file', { id: r.id });
-    const viewBtn = el('button', { className: 'ghost', textContent: 'عرض' });
-    const dlBtn = el('button', { className: 'ghost', textContent: 'تحميل' });
-    viewBtn.onclick = async () => {
-      // Open the tab synchronously so mobile popup blockers allow it.
-      const tab = isImg ? null : window.open('', '_blank');
-      viewBtn.disabled = true; fmsg.textContent = 'جارٍ الجلب...';
-      try {
-        const u = await getUrls();
-        if (isImg) preview.replaceChildren(el('img', { src: u.view, alt: r.file_name }));
-        else if (tab) tab.location = u.view;
-        else location.href = u.view;
-        fmsg.textContent = '';
-      } catch (e) { if (tab) tab.close(); fmsg.textContent = e; }
-      viewBtn.disabled = false;
-    };
-    dlBtn.onclick = async () => {
-      dlBtn.disabled = true; fmsg.textContent = 'جارٍ التحميل...';
-      try { location.href = (await getUrls()).download; fmsg.textContent = ''; }
-      catch (e) { fmsg.textContent = e; }
-      dlBtn.disabled = false;
-    };
-    c.append(el('div', { className: 'field' }, el('b', { textContent: 'ميزانية القسم: ' + r.file_name })),
-      el('div', { className: 'row', style: 'margin-top:0' }, viewBtn, dlBtn, fmsg), preview);
-  }
+  // Rows saved before multi-file support carry a single file in file_*.
+  const files = r.files && r.files.length ? r.files : r.file_path ? [{ name: r.file_name, type: r.file_type }] : [];
+  if (files.length) c.append(el('div', { className: 'field' }, el('b', { textContent: 'ميزانية القسم' + (files.length > 1 ? ' (' + files.length + ' ملفات)' : '') + ':' })),
+    ...files.map((f, n) => fileRow(r, f, n)));
 
   const note = el('textarea', { value: r.draft ?? r.note, placeholder: 'ملاحظاتي على هذا الطلب' });
   note.oninput = () => { r.draft = note.value; };
@@ -234,6 +227,37 @@ function card(r) {
   };
   c.append(el('label', { textContent: 'ملاحظاتي' }), note, el('div', { className: 'row' }, saveBtn, doneBtn, nmsg));
   return c;
+}
+
+// One attachment: its name, view (not for archives) and download.
+function fileRow(r, f, n) {
+  const preview = el('div', { className: 'preview' });
+  const fmsg = el('span', { className: 'meta' });
+  const isImg = (f.type || '').startsWith('image/');
+  const getUrls = () => call('file', { id: r.id, n });
+  const viewBtn = el('button', { className: 'ghost', textContent: 'عرض' });
+  const dlBtn = el('button', { className: 'ghost', textContent: 'تحميل' });
+  viewBtn.onclick = async () => {
+    // Open the tab synchronously so mobile popup blockers allow it.
+    const tab = isImg ? null : window.open('', '_blank');
+    viewBtn.disabled = true; fmsg.textContent = 'جارٍ الجلب...';
+    try {
+      const u = await getUrls();
+      if (isImg) preview.replaceChildren(el('img', { src: u.view, alt: f.name }));
+      else if (tab) tab.location = u.view;
+      else location.href = u.view;
+      fmsg.textContent = '';
+    } catch (e) { if (tab) tab.close(); fmsg.textContent = e; }
+    viewBtn.disabled = false;
+  };
+  dlBtn.onclick = async () => {
+    dlBtn.disabled = true; fmsg.textContent = 'جارٍ التحميل...';
+    try { location.href = (await getUrls()).download; fmsg.textContent = ''; }
+    catch (e) { fmsg.textContent = e; }
+    dlBtn.disabled = false;
+  };
+  return el('div', {}, el('div', { className: 'meta' }, el('bdi', { textContent: f.name })),
+    el('div', { className: 'row', style: 'margin-top:4px' }, ZIPS.includes(ext(f.name || '')) ? null : viewBtn, dlBtn, fmsg), preview);
 }
 
 // Opens a WhatsApp chat with the sender; the message quotes the request when there is one.

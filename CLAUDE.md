@@ -12,7 +12,8 @@
 - العنوان ثابت: «ميزانيات وملاحظات الجدول المدرسي». لا تغيّره ولا تحذف «الميزانيات».
 - رقم الهاتف إلزامي دائماً (للمعلم وللمدير عند الإضافة).
 - الصفة (معلم / رئيس قسم) يحددها الخادم من جدول `teachers` لا النموذج.
-- خانة «ميزانية القسم» لرؤساء الأقسام فقط (ملف واحد يُحفظ مع أول طلب).
+- خانة «ميزانية القسم» لرؤساء الأقسام فقط (حتى 10 ملفات، مجموعها 10MB، يقبل zip/rar/7z، تُحفظ مع أول طلب).
+- لا وعد للمعلم بالرد عبر واتساب.
 - الرابط للمعلمين لا يتغير: https://teacher-requests.onrender.com
 
 ## البنية
@@ -23,7 +24,7 @@
 | قديم غير مستعمل | `Code.gs` و`Index.html` (نسخة Apps Script الأولى) |
 
 ### Supabase (project id: `zywdedrtcaolsosufoae`)
-- `requests`: id, created_at, name, department, role(teacher|head), phone, request, reason, done, note, file_path, file_name, file_type, by_admin
+- `requests`: id, created_at, name, department, role(teacher|head), phone, request, reason, done, note, files (jsonb: [{path,name,type}]، حتى 10 ملفات مجموعها 10MB)، by_admin — `file_path, file_name, file_type` قديمة للطلبات السابقة فقط
 - `teachers`: name (PK), department, is_head — 91 معلماً من «جدول المعلّمين.pdf» (Drive، 2026-09-26)، 14 رئيس قسم. قسم اللغة الفرنسية بلا رئيس (مجهول).
 - `contacts`: name (PK), department, role, phone, updated_at — دفتر الأرقام، يبقى بعد حذف الطلبات.
 - `settings`: `teacher_pass` (نص صريح)، `admin_pass_sha256` (بصمة SHA-256).
@@ -31,7 +32,7 @@
 - RLS مفعّل على كل الجداول بلا سياسات؛ الوصول فقط عبر الدالة (service role).
 
 ### إجراءات الدالة (`action`)
-`login` (يرجع الدور وقائمة المعلمين) · `submit` (معلم أو مدير؛ `by_admin` للمدير) · المدير فقط: `list`, `contacts`, `done`, `note`, `delete` (يحذف الملف أيضاً), `file` (روابط موقّعة 10 دقائق).
+`login` (يرجع الدور وقائمة المعلمين) · `submit` (معلم أو مدير؛ `by_admin` للمدير) · المدير فقط: `list`, `contacts`, `done`, `note`, `delete` (يحذف الملف أيضاً), `file` (`id` + `n` رقم الملف؛ روابط موقّعة 10 دقائق).
 
 ### لوحة المدير
 تبويبات: الطلبات (واتساب، عرض/تحميل الميزانية، ملاحظاتي، تم ✓، حذف 🗑️) · أرقام المعلمين · إضافة طلب (نفس نموذج المعلم، الرقم يُملأ من الدفتر).

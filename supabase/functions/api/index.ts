@@ -3,7 +3,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 const BUCKET = "attachments";
-const MAX_BYTES = 10 * 1024 * 1024;
+const MAX_BYTES = 10 * 1024 * 1024; // total per request, all files together
+const MAX_FILES = 10;
 const TYPES: Record<string, string> = {
   pdf: "application/pdf",
   jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif",
@@ -12,6 +13,7 @@ const TYPES: Record<string, string> = {
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   xls: "application/vnd.ms-excel",
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  zip: "application/zip", rar: "application/vnd.rar", "7z": "application/x-7z-compressed",
 };
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -37,6 +39,13 @@ async function roleOf(pass: string): Promise<"admin" | "teacher" | null> {
   if ((await sha256(pass)) === s.admin_pass_sha256) return "admin";
   if (pass === s.teacher_pass) return "teacher";
   return null;
+}
+
+// Attachments of a row: the `files` list, or the single file of rows saved before it existed.
+type Att = { path: string; name: string; type: string };
+function filesOf(r: Record<string, any>): Att[] {
+  if (Array.isArray(r.files) && r.files.length) return r.files;
+  return r.file_path ? [{ path: r.file_path, name: r.file_name, type: r.file_type }] : [];
 }
 
 function b64ToBytes(b64: string) {
@@ -74,24 +83,36 @@ Deno.serve(async (req) => {
     // Role comes from the staff directory, never from the form.
     const { data: staff } = await db.from("teachers").select("is_head").eq("name", name).maybeSingle();
     const kind = staff?.is_head ? "head" : "teacher";
-    if (body.file && kind !== "head") return fail("ميزانية القسم يرفعها رئيس القسم فقط");
+    // `file` is the single-file shape the previous page sent.
+    const incoming: any[] = Array.isArray(body.files) ? body.files : body.file ? [body.file] : [];
+    if (incoming.length && kind !== "head") return fail("ميزانية القسم يرفعها رئيس القسم فقط");
+    if (incoming.length > MAX_FILES) return fail(`الحد ${MAX_FILES} ملفات للطلب`);
 
-    let file_path = null, file_name = null, file_type = null;
-    if (body.file) {
-      const fname = str(body.file.name, 150) || "مرفق";
+    const ready: { ext: string; name: string; type: string; bytes: Uint8Array }[] = [];
+    let total = 0;
+    for (const f of incoming) {
+      const fname = str(f?.name, 150) || "مرفق";
       const ext = (fname.split(".").pop() || "").toLowerCase();
       const type = TYPES[ext];
-      if (!type) return fail("الملف يجب أن يكون PDF أو صورة أو Word أو Excel");
-      const bytes = b64ToBytes(String(body.file.data || ""));
-      if (!bytes.length) return fail("المرفق فارغ");
-      if (bytes.length > MAX_BYTES) return fail("حجم المرفق يتجاوز 10 ميغابايت");
-      file_path = `${crypto.randomUUID()}.${ext}`;
-      const up = await db.storage.from(BUCKET).upload(file_path, bytes, { contentType: type });
-      if (up.error) return fail("تعذر رفع المرفق، حاول مجدداً", 500);
-      file_name = fname;
-      file_type = type;
+      if (!type) return fail("الملف يجب أن يكون PDF أو صورة أو Word أو Excel أو ملفاً مضغوطاً");
+      const bytes = b64ToBytes(String(f?.data || ""));
+      if (!bytes.length) return fail("المرفق فارغ: " + fname);
+      total += bytes.length;
+      if (total > MAX_BYTES) return fail("مجموع حجم المرفقات يتجاوز 10 ميغابايت");
+      ready.push({ ext, name: fname, type, bytes });
     }
-    const { error } = await db.from("requests").insert({ name, department, role: kind, phone, request, reason, file_path, file_name, file_type, by_admin: byAdmin });
+    const files: Att[] = [];
+    for (const f of ready) {
+      const path = `${crypto.randomUUID()}.${f.ext}`;
+      const up = await db.storage.from(BUCKET).upload(path, f.bytes, { contentType: f.type });
+      if (up.error) {
+        if (files.length) await db.storage.from(BUCKET).remove(files.map((x) => x.path));
+        return fail("تعذر رفع المرفق، حاول مجدداً", 500);
+      }
+      files.push({ path, name: f.name, type: f.type });
+    }
+    const { error } = await db.from("requests").insert({ name, department, role: kind, phone, request, reason, files, by_admin: byAdmin });
+    if (error && files.length) await db.storage.from(BUCKET).remove(files.map((x) => x.path));
     if (error) return fail("تعذر حفظ الطلب، حاول مجدداً", 500);
     await db.from("contacts").upsert({ name, department, role: kind, phone, updated_at: new Date().toISOString() });
     return json({ ok: true });
@@ -121,19 +142,21 @@ Deno.serve(async (req) => {
     return error ? fail("تعذر الحفظ", 500) : json({ ok: true });
   }
   if (action === "delete") {
-    // Removes the request and its attached file; the phone book keeps the sender's number.
-    const { data: row } = await db.from("requests").select("file_path").eq("id", id).maybeSingle();
+    // Removes the request and its attached files; the phone book keeps the sender's number.
+    const { data: row } = await db.from("requests").select("file_path,files").eq("id", id).maybeSingle();
     if (!row) return fail("الطلب غير موجود", 404);
-    if (row.file_path) await db.storage.from(BUCKET).remove([row.file_path]);
+    const paths = filesOf(row).map((f) => f.path);
+    if (paths.length) await db.storage.from(BUCKET).remove(paths);
     const { error } = await db.from("requests").delete().eq("id", id);
     return error ? fail("تعذر الحذف", 500) : json({ ok: true });
   }
   if (action === "file") {
-    // Only files referenced by a request row; short-lived signed URLs.
-    const { data: row } = await db.from("requests").select("file_path,file_name").eq("id", id).single();
-    if (!row?.file_path) return fail("لا يوجد مرفق", 404);
-    const view = await db.storage.from(BUCKET).createSignedUrl(row.file_path, 600);
-    const dl = await db.storage.from(BUCKET).createSignedUrl(row.file_path, 600, { download: row.file_name });
+    // Only files referenced by a request row (`n` = position in its list); short-lived signed URLs.
+    const { data: row } = await db.from("requests").select("file_path,file_name,file_type,files").eq("id", id).maybeSingle();
+    const f = row ? filesOf(row)[Number(body.n) || 0] : undefined;
+    if (!f) return fail("لا يوجد مرفق", 404);
+    const view = await db.storage.from(BUCKET).createSignedUrl(f.path, 600);
+    const dl = await db.storage.from(BUCKET).createSignedUrl(f.path, 600, { download: f.name });
     if (view.error || dl.error) return fail("تعذر جلب المرفق", 500);
     return json({ view: view.data.signedUrl, download: dl.data.signedUrl });
   }
