@@ -39,7 +39,7 @@
 ## النشر
 1. **ترتيب النشر**: إن احتاجت الواجهة الجديدة إجراءً جديداً في الخادم، انشر الدالة أولاً؛ وإن رفض الخادم الجديد طلبات الواجهة القديمة، انشر الواجهة أولاً.
 2. الدالة: `deploy_edge_function` (name `api`, `verify_jwt: false`) ثم `get_edge_function` وقارن بالملف.
-3. الواجهة: دفع إلى الفرع الذي يتابعه Render (خدمة `teacher-requests`، id `srv-db2vf32jnfac7386hpfg`).
+3. الواجهة: دفع إلى `main` في هذا المستودع (`7aidaraa/schedule-notes`)؛ خدمة Render `teacher-requests` (id `srv-db2vf32jnfac7386hpfg`) تنشر منه تلقائياً: Branch `main`، Publish Directory `web`، Build Command فارغ.
 4. الحاوية لا تصل إلى supabase.co ولا onrender.com؛ الاختبار الحي يقوم به صاحب المنصة.
 
 ### SQL مفيد
