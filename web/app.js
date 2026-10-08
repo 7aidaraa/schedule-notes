@@ -504,7 +504,7 @@ function deptTable(r) {
   return el('div', { className: 'card' },
     el('h2', { textContent: 'قسم ' + r.dp }),
     el('div', { className: 'meta', textContent: 'رئيس القسم: ' + r.head + ' · حصص الأسبوع — ' + per + ' · المطلوب ' + (r.req ?? '—') + ' · الموجود ' + r.have + ' · العجز ' + (r.gap ?? '—') }),
-    dup.size ? el('div', { className: 'msg err', textContent: 'فصول مسندة لأكثر من معلم: ' + [...dup].map(cls).join('، ') }) : null,
+    dup.size ? el('div', { className: 'meta', style: 'color:#7a5300;font-weight:700', textContent: 'فصول عند أكثر من معلم (طبيعي إذا اختلفت المادة): ' + [...dup].map(cls).join('، ') }) : null,
     el('div', { className: 'wrap' }, el('table', { className: 'bt' }, el('thead', {}, head1, head2), el('tbody', {}, ...body))),
     d.note ? el('div', { className: 'field', style: 'margin-top:8px' }, el('b', { textContent: 'ملاحظات: ' }), el('span', { textContent: d.note })) : null);
 }
