@@ -15,6 +15,9 @@ const TYPES: Record<string, string> = {
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   zip: "application/zip", rar: "application/vnd.rar", "7z": "application/x-7z-compressed",
 };
+// Department budget: which classes each teacher takes. Class ids are shared with the page.
+const CLASSES = ["10-1","10-2","10-3","10-4","10-5","10-6","10-7","11a-1","11a-2","11s-1","11s-2","11s-3","11s-4","11s-5","12a-1","12s-1","12s-2","12s-3","12s-4","12s-5"];
+const TRACKS = ["g10", "g11a", "g11s", "g12a", "g12s"];
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "content-type, authorization, apikey, x-client-info",
@@ -46,6 +49,28 @@ type Att = { path: string; name: string; type: string };
 function filesOf(r: Record<string, any>): Att[] {
   if (Array.isArray(r.files) && r.files.length) return r.files;
   return r.file_path ? [{ path: r.file_path, name: r.file_name, type: r.file_type }] : [];
+}
+
+const int = (v: unknown, max: number) => {
+  const n = Math.floor(Number(v));
+  return Number.isFinite(n) && n >= 0 ? Math.min(n, max) : null;
+};
+// Keeps only the shape the page saves: periods per track, required count, note, teachers with their classes.
+function cleanBudget(d: Record<string, any>) {
+  const periods: Record<string, number | null> = {};
+  for (const t of TRACKS) periods[t] = int(d?.periods?.[t], 40);
+  const teachers = (Array.isArray(d?.teachers) ? d.teachers : []).slice(0, 40).map((t: any) => {
+    const cells: Record<string, number> = {};
+    for (const c of CLASSES) { const n = int(t?.cells?.[c], 40); if (n !== null) cells[c] = n; }
+    return { name: str(t?.name, 120), cells, note: str(t?.note, 300) };
+  }).filter((t: any) => t.name);
+  return { periods, required: int(d?.required, 99), note: str(d?.note, 1000), teachers };
+}
+// The admin edits any department; a head of department edits their own (the directory decides who is head).
+async function canEditBudget(role: string, name: string, department: string) {
+  if (role === "admin") return true;
+  const { data } = await db.from("teachers").select("is_head").eq("name", name).eq("department", department).maybeSingle();
+  return !!data?.is_head;
 }
 
 function b64ToBytes(b64: string) {
@@ -118,7 +143,33 @@ Deno.serve(async (req) => {
     return json({ ok: true });
   }
 
+  if (action === "budget_get") {
+    const department = str(body.department, 80), name = str(body.name, 120);
+    if (!department || !(await canEditBudget(role, name, department))) return fail("غير مصرح", 403);
+    const { data: row } = await db.from("budgets").select("*").eq("department", department).maybeSingle();
+    if (row) return json({ budget: row });
+    // First visit: pre-filled with the department's teachers, nothing saved yet.
+    const { data: staff } = await db.from("teachers").select("name").eq("department", department).order("name");
+    const data = cleanBudget({ teachers: (staff ?? []).map((t) => ({ name: t.name })) });
+    return json({ budget: { department, data, updated_at: null, updated_by: null } });
+  }
+
+  if (action === "budget_save") {
+    const department = str(body.department, 80), name = str(body.name, 120);
+    if (!department || !(await canEditBudget(role, name, department))) return fail("غير مصرح", 403);
+    const data = cleanBudget(body.data ?? {});
+    const updated_at = new Date().toISOString(), updated_by = role === "admin" ? "المدير" : name;
+    const { error } = await db.from("budgets").upsert({ department, data, updated_at, updated_by });
+    return error ? fail("تعذر حفظ الميزانية، حاول مجدداً", 500) : json({ ok: true, updated_at, updated_by });
+  }
+
   if (role !== "admin") return fail("غير مصرح", 403);
+
+  if (action === "budgets") {
+    const { data, error } = await db.from("budgets").select("*").order("department");
+    if (error) return fail("تعذر جلب الميزانيات", 500);
+    return json({ rows: data });
+  }
 
   if (action === "list") {
     const { data, error } = await db.from("requests").select("*").order("created_at", { ascending: false });

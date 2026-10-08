@@ -105,6 +105,7 @@ function showRole() {
   $('roleTag').replaceChildren(...(t ? [t.is_head ? el('b', { textContent: 'رئيس قسم ' + t.department }) : 'معلم'] : []));
   $('budget').classList.toggle('hidden', !isHead());
   if (!isHead()) { FILES = []; showFiles(); }
+  showBudgetState();
 }
 
 // Each request is its own card with its own reason (and attachment for heads of department).
@@ -268,8 +269,9 @@ function waBtn(phone, name, request) {
 
 // ---- Phone book: last number each sender used, kept even after requests are deleted ----
 function tab(which) {
-  $('tabReq').classList.toggle('on', which === 'req'); $('tabBook').classList.toggle('on', which === 'book'); $('tabAdd').classList.toggle('on', which === 'add');
-  $('reqView').classList.toggle('hidden', which !== 'req'); $('book').classList.toggle('hidden', which !== 'book');
+  ['req', 'book', 'add', 'school'].forEach(k => $('tab' + k[0].toUpperCase() + k.slice(1)).classList.toggle('on', which === k));
+  $('reqView').classList.toggle('hidden', which !== 'req'); $('book').classList.toggle('hidden', which !== 'book'); $('school').classList.toggle('hidden', which !== 'school');
+  if (which === 'school') loadSchool();
   $('teacher').classList.toggle('hidden', which !== 'add');
   if (which === 'book') loadBook();
   if (which === 'req') loadList();
@@ -296,4 +298,213 @@ function render() {
   const open = ROWS.filter(r => !r.done).length;
   $('count').textContent = 'الإجمالي: ' + ROWS.length + ' — غير المنجزة: ' + open;
   $('list').replaceChildren(...(rows.length ? rows.map(card) : [el('div', { className: 'card meta', textContent: 'لا توجد طلبات' })]));
+}
+
+// ---- Department budget ----
+// Class ids match the server. Each grade/track has a default number of weekly periods per class.
+const GRADES = [
+  { track: 'g10', label: 'العاشر', short: 'العاشر', classes: ['10-1', '10-2', '10-3', '10-4', '10-5', '10-6', '10-7'] },
+  { track: 'g11a', label: 'الحادي عشر أدبي', short: '11 أدبي', classes: ['11a-1', '11a-2'] },
+  { track: 'g11s', label: 'الحادي عشر علمي', short: '11 علمي', classes: ['11s-1', '11s-2', '11s-3', '11s-4', '11s-5'] },
+  { track: 'g12a', label: 'الثاني عشر أدبي', short: '12 أدبي', classes: ['12a-1'] },
+  { track: 'g12s', label: 'الثاني عشر علمي', short: '12 علمي', classes: ['12s-1', '12s-2', '12s-3', '12s-4', '12s-5'] },
+];
+const CLASSES = GRADES.flatMap(g => g.classes);
+const trackOf = c => GRADES.find(g => g.classes.includes(c)).track;
+// "11s-3" → "11ع3", "10-4" → "4" inside its grade group, full label elsewhere.
+const cls = c => { const [g, n] = c.split('-'); return g.replace('a', 'د').replace('s', 'ع') + n; };
+const clsShort = c => { const [g, n] = c.split('-'); return g === '10' ? n : g.slice(2).replace('a', 'د').replace('s', 'ع') + n; };
+const nisab = t => CLASSES.reduce((a, c) => a + (t.cells[c] || 0), 0);
+const sum = (arr, f) => arr.reduce((a, x) => a + f(x), 0);
+// Classes assigned to more than one teacher in the same department.
+function dupes(teachers) {
+  const seen = {}, d = new Set();
+  teachers.forEach(t => CLASSES.forEach(c => { if (c in t.cells) { if (seen[c]) d.add(c); seen[c] = true; } }));
+  return d;
+}
+
+let BUDGET = null; // { department, name, data, onDone }
+let saveTimer = null, dirty = false;
+
+function openBudget(department, name, onDone) {
+  BUDGET = { department, name, data: null, onDone };
+  $('teacher').classList.add('hidden'); $('admin').classList.add('hidden'); $('bedit').classList.remove('hidden');
+  $('beTitle').textContent = 'ميزانية قسم ' + department;
+  $('beTeachers').replaceChildren(el('div', { className: 'card meta', textContent: 'جارٍ التحميل...' }));
+  $('beMsg').textContent = '';
+  call('budget_get', { department, name }).then(o => {
+    BUDGET.data = o.budget.data;
+    BUDGET.data.teachers.forEach(t => { t.cells = t.cells || {}; });
+    renderBudget();
+    $('beMsg').textContent = o.budget.updated_at ? 'آخر حفظ: ' + new Date(o.budget.updated_at).toLocaleString('ar-KW') + (o.budget.updated_by ? ' (' + o.budget.updated_by + ')' : '') : 'لم تُحفظ بعد';
+    window.scrollTo(0, 0);
+  }).catch(e => $('beTeachers').replaceChildren(el('div', { className: 'card meta', textContent: e })));
+}
+function closeBudget() {
+  if (dirty) saveBudget();
+  $('bedit').classList.add('hidden');
+  const done = BUDGET && BUDGET.onDone; BUDGET = null;
+  if (done) done();
+}
+$('beBack').onclick = closeBudget;
+
+function changed() {
+  dirty = true; renderSums();
+  clearTimeout(saveTimer); saveTimer = setTimeout(saveBudget, 800);
+  $('beMsg').textContent = 'جارٍ الحفظ...';
+}
+async function saveBudget() {
+  if (!BUDGET || !BUDGET.data) return;
+  clearTimeout(saveTimer);
+  const snapshot = JSON.stringify(BUDGET.data);
+  try {
+    const o = await call('budget_save', { department: BUDGET.department, name: BUDGET.name, data: BUDGET.data });
+    if (JSON.stringify(BUDGET.data) === snapshot) dirty = false;
+    $('beMsg').textContent = 'حُفظ ✓ ' + new Date(o.updated_at).toLocaleTimeString('ar-KW', { hour: '2-digit', minute: '2-digit' });
+  } catch (e) { $('beMsg').textContent = 'لم يُحفظ: ' + e; }
+}
+$('beSave').onclick = saveBudget;
+window.addEventListener('beforeunload', e => { if (dirty) { saveBudget(); e.preventDefault(); e.returnValue = ''; } });
+
+function renderBudget() {
+  const d = BUDGET.data;
+  $('bePeriods').replaceChildren(...GRADES.map(g => {
+    const inp = el('input', { type: 'number', inputMode: 'numeric', min: 0, max: 40, value: d.periods[g.track] ?? '', placeholder: '—' });
+    inp.oninput = () => { d.periods[g.track] = inp.value === '' ? null : Number(inp.value); changed(); };
+    return el('div', {}, el('label', { textContent: g.short }), inp);
+  }));
+  $('beReq').value = d.required ?? '';
+  $('beReq').oninput = () => { d.required = $('beReq').value === '' ? null : Number($('beReq').value); changed(); };
+  $('beNote').value = d.note || '';
+  $('beNote').oninput = () => { d.note = $('beNote').value; changed(); };
+  renderTeachers();
+}
+function renderTeachers() {
+  const d = BUDGET.data, dup = dupes(d.teachers);
+  $('beTeachers').replaceChildren(...d.teachers.map((t, i) => teacherCard(t, i, dup)));
+  renderSums();
+}
+function renderSums() {
+  const d = BUDGET.data, have = d.teachers.length;
+  $('beHave').textContent = have;
+  const gap = d.required === null || d.required === undefined ? null : d.required - have;
+  $('beGap').textContent = gap === null ? '—' : gap;
+  $('beGap').className = gap > 0 ? 'neg' : '';
+}
+function teacherCard(t, i, dup) {
+  const box = el('div', { className: 'card' });
+  const tag = el('span', { className: 'nisab', textContent: 'النصاب: ' + nisab(t) });
+  const remove = el('button', { className: 'del', type: 'button', textContent: '🗑️', title: 'حذف المعلم من الميزانية' });
+  remove.onclick = () => { if (confirm('حذف «' + t.name + '» من ميزانية القسم؟')) { BUDGET.data.teachers.splice(i, 1); changed(); renderTeachers(); } };
+  const nameEl = t.added ? el('input', { value: t.name, placeholder: 'اسم المعلم', maxLength: 120 }) : el('strong', { textContent: (i + 1) + '. ' + t.name });
+  if (t.added) nameEl.oninput = () => { t.name = nameEl.value.trim(); changed(); };
+  box.append(el('div', { className: 'row', style: 'margin-top:0;justify-content:space-between' }, nameEl, el('div', { className: 'row', style: 'margin-top:0' }, tag, remove)));
+  const editor = el('div');
+  GRADES.forEach(g => {
+    const row = el('div', { className: 'grade' }, el('span', { textContent: g.short }));
+    g.classes.forEach(c => {
+      const on = c in t.cells;
+      const b = el('button', { className: 'chip' + (on ? ' on' : '') + (dup.has(c) && on ? ' dup' : ''), type: 'button', title: cls(c) },
+        clsShort(c), on ? el('small', { textContent: t.cells[c] }) : null);
+      b.onclick = () => {
+        if (!on) {
+          const def = BUDGET.data.periods[g.track];
+          t.cells[c] = def ?? 0; changed(); renderTeachers();
+          if (def === null || def === undefined) { $('bePeriods').children[GRADES.indexOf(g)].querySelector('input').focus(); $('beMsg').textContent = 'حدد حصص الأسبوع لهذا الصف أولاً'; }
+        } else {
+          // Second tap: change the periods of this one class, or remove it.
+          const inp = el('input', { type: 'number', inputMode: 'numeric', min: 0, max: 40, value: t.cells[c] });
+          const ok = el('button', { className: 'ghost', type: 'button', textContent: 'تم' });
+          const rm = el('button', { className: 'ghost', type: 'button', textContent: 'إزالة' });
+          ok.onclick = () => { t.cells[c] = Number(inp.value) || 0; changed(); renderTeachers(); };
+          rm.onclick = () => { delete t.cells[c]; changed(); renderTeachers(); };
+          inp.onkeydown = e => { if (e.key === 'Enter') ok.click(); };
+          editor.replaceChildren(el('div', { className: 'cellEdit' }, el('span', { textContent: 'حصص ' + cls(c) + ':' }), inp, ok, rm));
+          inp.focus(); inp.select();
+        }
+      };
+      row.append(b);
+    });
+    box.append(row);
+  });
+  const note = el('input', { value: t.note || '', placeholder: 'ملاحظة (اختياري)', maxLength: 300, style: 'margin-top:8px;font-size:14px;padding:7px 10px' });
+  note.oninput = () => { t.note = note.value; changed(); };
+  box.append(editor, note);
+  return box;
+}
+$('beAdd').onclick = () => {
+  BUDGET.data.teachers.push({ name: '', cells: {}, note: '', added: true });
+  renderTeachers();
+  const inputs = $('beTeachers').querySelectorAll('input[placeholder="اسم المعلم"]');
+  inputs[inputs.length - 1].focus();
+};
+
+// Head of department: opens the editor from the form; the state line shows whether a budget is saved.
+$('budgetOpen').onclick = () => {
+  const t = person();
+  if (!t) return;
+  openBudget(t.department, t.name, () => { $('teacher').classList.remove('hidden'); if (ROLE === 'admin') $('admin').classList.remove('hidden'); stateKey = ''; showBudgetState(); });
+};
+let stateKey = '';
+function showBudgetState() {
+  const t = person();
+  const key = t && t.is_head ? t.department + '|' + t.name : '';
+  if (key === stateKey) return;
+  stateKey = key; $('budgetState').textContent = '';
+  if (!key) return;
+  call('budget_get', { department: t.department, name: t.name }).then(o => {
+    const b = o.budget, n = b.data.teachers.filter(x => Object.keys(x.cells || {}).length).length;
+    $('budgetState').textContent = b.updated_at ? 'محفوظة (' + n + ' معلمين لهم فصول) — آخر تعديل ' + new Date(b.updated_at).toLocaleDateString('ar-KW') : 'لم تُدخل بعد';
+  }).catch(() => {});
+}
+
+// ---- Admin: the whole school on one page ----
+let SCHOOL = [];
+$('tabSchool').onclick = () => tab('school');
+$('schoolRefresh').onclick = loadSchool;
+$('schoolPrint').onclick = () => { $('schoolDetail').classList.remove('hidden'); print(); };
+$('schoolToggle').onclick = () => { const h = $('schoolDetail').classList.toggle('hidden'); $('schoolToggle').textContent = h ? 'عرض التفاصيل' : 'إخفاء التفاصيل'; };
+async function loadSchool() {
+  $('schoolMsg').textContent = 'جارٍ التحميل...';
+  try { SCHOOL = (await call('budgets')).rows; renderSchool(); $('schoolMsg').textContent = ''; }
+  catch (e) { $('schoolMsg').textContent = e; }
+}
+function renderSchool() {
+  const depts = [...new Set(TEACHERS.map(t => t.department))];
+  const rows = depts.map(dp => {
+    const b = SCHOOL.find(x => x.department === dp);
+    const head = (TEACHERS.find(t => t.department === dp && t.is_head) || {}).name || '—';
+    const have = b ? b.data.teachers.length : TEACHERS.filter(t => t.department === dp).length;
+    const req = b ? b.data.required : null;
+    return { dp, b, head, have, req, gap: req === null || req === undefined ? null : req - have, periods: b ? sum(b.data.teachers, nisab) : 0 };
+  });
+  const td = (v, cls) => el('td', { className: cls || '', textContent: v === null || v === undefined ? '—' : v });
+  const table = el('table', { className: 'bsum' },
+    el('thead', {}, el('tr', {}, ...['القسم', 'رئيس القسم', 'المطلوب', 'الموجود', 'العجز', 'الحصص', 'آخر تحديث', ''].map(h => el('th', { textContent: h })))),
+    el('tbody', {}, ...rows.map(r => {
+      const edit = el('button', { className: 'ghost noprint', textContent: 'تعديل', style: 'padding:4px 12px' });
+      edit.onclick = () => openBudget(r.dp, 'المدير', () => { $('admin').classList.remove('hidden'); loadSchool(); });
+      return el('tr', {}, td(r.dp), td(r.head), td(r.req), td(r.have), td(r.gap, r.gap > 0 ? 'neg' : ''), td(r.periods),
+        td(r.b ? new Date(r.b.updated_at).toLocaleDateString('ar-KW') + ' · ' + (r.b.updated_by || '') : 'لم تُدخل بعد'), el('td', {}, edit));
+    }),
+    el('tr', { className: 'tot' }, td('المجموع'), td(''), td(sum(rows, r => r.req || 0)), td(sum(rows, r => r.have)), td(sum(rows, r => r.gap > 0 ? r.gap : 0)), td(sum(rows, r => r.periods)), td(''), td(''))));
+  $('schoolSummary').replaceChildren(el('h2', { textContent: 'ميزانية المدرسة ' }), el('div', { className: 'meta', textContent: rows.filter(r => r.b).length + ' من ' + rows.length + ' أقسام أدخلت ميزانيتها' }), el('div', { className: 'wrap' }, table));
+  $('schoolDetail').replaceChildren(...rows.filter(r => r.b).map(r => deptTable(r)));
+}
+// The department's budget in the layout of the paper form: teacher × classes, then نصاب and notes.
+function deptTable(r) {
+  const d = r.b.data, dup = dupes(d.teachers);
+  const th = (t, props) => el('th', Object.assign({ textContent: t }, props || {}));
+  const head1 = el('tr', {}, th('م', { rowSpan: 2 }), th('المعلم', { rowSpan: 2 }), ...GRADES.map(g => th(g.label, { colSpan: g.classes.length })), th('النصاب', { rowSpan: 2 }), th('ملاحظات', { rowSpan: 2 }));
+  const head2 = el('tr', {}, ...CLASSES.map(c => th(clsShort(c))));
+  const body = d.teachers.map((t, i) => el('tr', {}, el('td', { textContent: i + 1 }), el('td', { className: 'n', textContent: t.name }),
+    ...CLASSES.map(c => el('td', { className: c in t.cells ? (dup.has(c) ? 'dup' : 'on') : '', textContent: c in t.cells ? t.cells[c] : '' })),
+    el('td', { textContent: nisab(t) }), el('td', { className: 'n', textContent: t.note || '' })));
+  const per = GRADES.map(g => g.short + ': ' + (d.periods[g.track] ?? '—')).join(' · ');
+  return el('div', { className: 'card' },
+    el('h2', { textContent: 'قسم ' + r.dp }),
+    el('div', { className: 'meta', textContent: 'رئيس القسم: ' + r.head + ' · حصص الأسبوع — ' + per + ' · المطلوب ' + (r.req ?? '—') + ' · الموجود ' + r.have + ' · العجز ' + (r.gap ?? '—') }),
+    dup.size ? el('div', { className: 'msg err', textContent: 'فصول مسندة لأكثر من معلم: ' + [...dup].map(cls).join('، ') }) : null,
+    el('div', { className: 'wrap' }, el('table', { className: 'bt' }, el('thead', {}, head1, head2), el('tbody', {}, ...body))),
+    d.note ? el('div', { className: 'field', style: 'margin-top:8px' }, el('b', { textContent: 'ملاحظات: ' }), el('span', { textContent: d.note })) : null);
 }

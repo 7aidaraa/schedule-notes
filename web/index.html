@@ -74,6 +74,40 @@
   button.del:hover { background:#fdecea; box-shadow:none; }
   .mine { display:inline-block; padding:1px 10px; border-radius:99px; font-size:12px; font-weight:700; background:#e8f1f7; color:var(--blue); }
   .contact { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+  /* Budget editor: one card per teacher, class chips grouped by grade. */
+  .grade { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .grade > span { min-width:64px; font-size:13px; color:var(--mute); font-weight:700; }
+  .chip { display:inline-flex; align-items:center; gap:5px; padding:5px 11px; border-radius:99px; border:1.5px solid var(--line); background:#fff; color:var(--ink); font-weight:400; font-size:14px; box-shadow:none; }
+  .chip small { font-size:11px; padding:0 6px; border-radius:99px; background:var(--gold); color:#2b1d00; font-weight:700; }
+  .chip.on { background:var(--navy); color:#fff; border-color:var(--navy); font-weight:700; }
+  .chip.dup { outline:2px solid var(--err); }
+  .nisab { font-size:14px; padding:2px 12px; border-radius:99px; background:var(--gold-soft); color:#7a5300; font-weight:700; }
+  .cellEdit { display:flex; align-items:center; gap:8px; margin-top:8px; padding:8px 10px; border-radius:10px; background:#eef3f7; }
+  .cellEdit input { width:72px; padding:6px 8px; text-align:center; }
+  .periods { display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; }
+  .periods label { margin:0 0 4px; font-size:12px; text-align:center; }
+  .periods input { padding:8px 4px; text-align:center; }
+  .sums { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; text-align:center; }
+  .sums b { display:block; font-size:13px; color:var(--mute); }
+  .sums span { font-size:22px; font-weight:700; color:var(--navy); }
+  .sums input { text-align:center; font-size:20px; font-weight:700; padding:6px; }
+  .sums .neg { color:var(--err); }
+  .wrap { overflow-x:auto; }
+  table.bt { border-collapse:collapse; font-size:12px; min-width:100%; }
+  table.bt th, table.bt td { border:1px solid var(--line); padding:3px 5px; text-align:center; white-space:nowrap; }
+  table.bt th { background:#eef3f7; }
+  table.bt td.n { text-align:right; }
+  table.bt td.on { background:var(--gold-soft); font-weight:700; }
+  table.bt td.dup { background:#fdecea; color:var(--err); }
+  .bsum { width:100%; border-collapse:collapse; font-size:14px; }
+  .bsum th, .bsum td { padding:6px 8px; border-bottom:1px solid var(--line); text-align:center; }
+  .bsum td:first-child, .bsum th:first-child { text-align:right; }
+  .bsum tr.tot td { font-weight:700; background:#eef3f7; }
+  @media print {
+    body { background:#fff; font-size:12px; } .hero, .tabs, #reqView, #book, #teacher, .noprint, button { display:none !important; }
+    main { max-width:none; margin:0; padding:0; } .card { box-shadow:none; break-inside:avoid; border-color:#999; }
+    .wrap { overflow:visible; } #schoolDetail { display:block !important; }
+  }
   footer { text-align:center; color:var(--mute); font-size:13px; padding:8px 16px 28px; }
   @media (prefers-reduced-motion: reduce) { * { transition:none !important; } }
 </style>
@@ -96,7 +130,12 @@
 
 
   <section id="admin" class="hidden">
-    <div class="tabs"><button id="tabReq" class="ghost on">الطلبات</button><button id="tabBook" class="ghost">أرقام المعلمين</button><button id="tabAdd" class="ghost">إضافة طلب</button></div>
+    <div class="tabs"><button id="tabReq" class="ghost on">الطلبات</button><button id="tabBook" class="ghost">أرقام المعلمين</button><button id="tabAdd" class="ghost">إضافة طلب</button><button id="tabSchool" class="ghost">ميزانية المدرسة</button></div>
+    <div id="school" class="hidden">
+      <div class="row noprint" style="margin:0 0 12px"><button id="schoolRefresh" class="ghost">تحديث</button><button id="schoolPrint" class="ghost">طباعة</button><button id="schoolToggle" class="ghost">عرض التفاصيل</button><span id="schoolMsg" class="meta"></span></div>
+      <div id="schoolSummary" class="card"></div>
+      <div id="schoolDetail" class="hidden"></div>
+    </div>
     <div id="book" class="hidden"><div id="bookList"></div></div>
     <div id="reqView">
     <div class="row" style="margin-bottom:12px">
@@ -121,10 +160,14 @@
     </div>
     <div id="budget" class="card hidden">
       <h2>ميزانية القسم</h2>
+      <p class="lead">اضغط على الفصول التي يدرّسها كل معلم، ويُحسب النصاب والعجز تلقائياً. تُحفظ وتعود إليها متى شئت.</p>
+      <div class="row" style="margin-top:4px"><button id="budgetOpen" type="button">إدخال ميزانية القسم</button><span id="budgetState" class="meta"></span></div>
+      <details style="margin-top:14px"><summary class="meta" style="cursor:pointer">أو أرفق ملف الميزانية بدلاً من ذلك</summary>
       <label for="budgetFile">ميزانية القسم (اختياري): حتى 10 ملفات، مجموعها 10 ميغابايت</label>
       <div class="meta">PDF أو صورة أو Word أو Excel أو ملف مضغوط (ZIP أو RAR أو 7z). يمكنك الاختيار أكثر من مرة.</div>
       <input id="budgetFile" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.zip,.rar,.7z,image/*">
       <div id="fileList"></div>
+      </details>
     </div>
     <div id="items"></div>
     <button id="addBtn" class="ghost" type="button">+ إضافة طلب آخر</button>
@@ -134,6 +177,27 @@
       <input id="phone" type="tel" inputmode="numeric" maxlength="16" dir="ltr" placeholder="9xxxxxxx">
       <div class="row"><button id="sendBtn">إرسال</button></div>
       <div id="sendMsg" class="msg"></div>
+    </div>
+  </section>
+  <section id="bedit" class="hidden">
+    <div class="card">
+      <div class="row" style="margin-top:0;justify-content:space-between"><h2 id="beTitle">ميزانية القسم</h2><button id="beBack" class="ghost" type="button">رجوع</button></div>
+      <p class="lead">اضغط على الفصل ليُسند إلى المعلم، واضغطه مرة أخرى لتغيير عدد الحصص أو إزالته. الحفظ تلقائي.</p>
+      <label>حصص الأسبوع للفصل الواحد</label>
+      <div class="periods" id="bePeriods"></div>
+    </div>
+    <div id="beTeachers"></div>
+    <button id="beAdd" class="ghost" type="button" style="width:100%;border-style:dashed">+ إضافة معلم</button>
+    <div class="card" style="margin-top:14px">
+      <h2>ميزانية المعلمين</h2>
+      <div class="sums" style="margin-top:10px">
+        <div><b>العدد المطلوب</b><input id="beReq" type="number" inputmode="numeric" min="0" max="99" placeholder="—"></div>
+        <div><b>الموجود</b><span id="beHave">0</span></div>
+        <div><b>العجز</b><span id="beGap">—</span></div>
+      </div>
+      <label for="beNote">ملاحظات</label>
+      <textarea id="beNote" maxlength="1000" placeholder="أي ملاحظة على ميزانية القسم"></textarea>
+      <div class="row"><button id="beSave" type="button">حفظ</button><span id="beMsg" class="meta"></span></div>
     </div>
   </section>
 </main>
