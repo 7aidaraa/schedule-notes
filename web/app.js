@@ -370,7 +370,13 @@ function renderBudget() {
   const d = BUDGET.data;
   $('bePeriods').replaceChildren(...GRADES.map(g => {
     const inp = el('input', { type: 'number', inputMode: 'numeric', min: 0, max: 40, value: d.periods[g.track] ?? '', placeholder: '—' });
-    inp.oninput = () => { d.periods[g.track] = inp.value === '' ? null : Number(inp.value); changed(); };
+    inp.oninput = () => {
+      const old = d.periods[g.track], now = inp.value === '' ? null : Number(inp.value);
+      d.periods[g.track] = now;
+      if (now !== null) d.teachers.forEach(t => g.classes.forEach(c => { if (c in t.cells && (t.cells[c] === old || t.cells[c] === 0)) t.cells[c] = now; }));
+      changed(); renderTeachers();
+      inp.focus();
+    };
     return el('div', {}, el('label', { textContent: g.short }), inp);
   }));
   $('beReq').value = d.required ?? '';
@@ -399,34 +405,41 @@ function teacherCard(t, i, dup) {
   const nameEl = t.added ? el('input', { value: t.name, placeholder: 'اسم المعلم', maxLength: 120 }) : el('strong', { textContent: (i + 1) + '. ' + t.name });
   if (t.added) nameEl.oninput = () => { t.name = nameEl.value.trim(); changed(); };
   box.append(el('div', { className: 'row', style: 'margin-top:0;justify-content:space-between' }, nameEl, el('div', { className: 'row', style: 'margin-top:0' }, tag, remove)));
+  // One row per grade, equal cells: a class sits in the same spot on every card.
+  // Tap toggles the class; long press changes its periods when they differ from the grade default.
   const editor = el('div');
+  const grid = el('div', { className: 'cgrid' });
   GRADES.forEach(g => {
-    const row = el('div', { className: 'grade' }, el('span', { textContent: g.short }));
+    grid.append(el('div', { className: 'glabel', textContent: g.short }));
     g.classes.forEach(c => {
       const on = c in t.cells;
-      const b = el('button', { className: 'chip' + (on ? ' on' : '') + (dup.has(c) && on ? ' dup' : ''), type: 'button', title: cls(c) },
-        clsShort(c), on ? el('small', { textContent: t.cells[c] }) : null);
-      b.onclick = () => {
-        if (!on) {
-          const def = BUDGET.data.periods[g.track];
-          t.cells[c] = def ?? 0; changed(); renderTeachers();
-          if (def === null || def === undefined) { $('bePeriods').children[GRADES.indexOf(g)].querySelector('input').focus(); $('beMsg').textContent = 'حدد حصص الأسبوع لهذا الصف أولاً'; }
-        } else {
-          // Second tap: change the periods of this one class, or remove it.
-          const inp = el('input', { type: 'number', inputMode: 'numeric', min: 0, max: 40, value: t.cells[c] });
-          const ok = el('button', { className: 'ghost', type: 'button', textContent: 'تم' });
-          const rm = el('button', { className: 'ghost', type: 'button', textContent: 'إزالة' });
-          ok.onclick = () => { t.cells[c] = Number(inp.value) || 0; changed(); renderTeachers(); };
-          rm.onclick = () => { delete t.cells[c]; changed(); renderTeachers(); };
-          inp.onkeydown = e => { if (e.key === 'Enter') ok.click(); };
-          editor.replaceChildren(el('div', { className: 'cellEdit' }, el('span', { textContent: 'حصص ' + cls(c) + ':' }), inp, ok, rm));
-          inp.focus(); inp.select();
-        }
+      const def = BUDGET.data.periods[g.track];
+      const odd = on && def !== null && def !== undefined && t.cells[c] !== def;
+      const b = el('button', { className: 'cell' + (on ? ' on' : '') + (dup.has(c) && on ? ' dup' : '') + (odd ? ' odd' : ''), type: 'button', title: cls(c) },
+        el('span', { textContent: c.split('-')[1] }), on ? el('small', { textContent: t.cells[c] }) : null);
+      let timer = null, held = false;
+      const editPeriods = () => {
+        const inp = el('input', { type: 'number', inputMode: 'numeric', min: 0, max: 40, value: t.cells[c] ?? def ?? '' });
+        const ok = el('button', { className: 'ghost', type: 'button', textContent: 'تم' });
+        ok.onclick = () => { t.cells[c] = Number(inp.value) || 0; changed(); renderTeachers(); };
+        inp.onkeydown = e => { if (e.key === 'Enter') ok.click(); };
+        editor.replaceChildren(el('div', { className: 'cellEdit' }, el('span', { textContent: 'حصص ' + cls(c) + ':' }), inp, ok));
+        inp.focus(); inp.select();
       };
-      row.append(b);
+      b.onpointerdown = () => { held = false; timer = setTimeout(() => { held = true; editPeriods(); }, 500); };
+      b.onpointerup = b.onpointerleave = b.onpointercancel = () => clearTimeout(timer);
+      b.oncontextmenu = e => e.preventDefault();
+      b.onclick = () => {
+        if (held) return;
+        if (on) { delete t.cells[c]; changed(); renderTeachers(); return; }
+        t.cells[c] = def ?? 0; changed(); renderTeachers();
+        if (def === null || def === undefined) { $('bePeriods').children[GRADES.indexOf(g)].querySelector('input').focus(); $('beMsg').textContent = 'حدد حصص الأسبوع لهذا الصف أولاً'; }
+      };
+      grid.append(b);
     });
-    box.append(row);
+    for (let k = g.classes.length; k < 7; k++) grid.append(el('div'));
   });
+  box.append(grid);
   const note = el('input', { value: t.note || '', placeholder: 'ملاحظة (اختياري)', maxLength: 300, style: 'margin-top:8px;font-size:14px;padding:7px 10px' });
   note.oninput = () => { t.note = note.value; changed(); };
   box.append(editor, note);
