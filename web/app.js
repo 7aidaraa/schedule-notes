@@ -314,6 +314,17 @@ const trackOf = c => GRADES.find(g => g.classes.includes(c)).track;
 // "11s-3" → "11ع3", "10-4" → "4" inside its grade group, full label elsewhere.
 const cls = c => { const [g, n] = c.split('-'); return g.replace('a', 'د').replace('s', 'ع') + n; };
 const clsShort = c => { const [g, n] = c.split('-'); return g === '10' ? n : g.slice(2).replace('a', 'د').replace('s', 'ع') + n; };
+// Subjects offered in multi-subject departments; a saved subject not listed here is added when the editor opens.
+const SUBJECTS = {
+  'الاجتماعيات': ['تاريخ الكويت', 'الدستور', 'علم النفس', 'الجغرافيا', 'التاريخ', 'الفلسفة'],
+  'الفيزياء والكيمياء': ['الفيزياء', 'الكيمياء'],
+  'الأحياء والجيولوجيا': ['الأحياء', 'الجيولوجيا', 'التربية البيئية'],
+  'الرياضيات': ['الرياضيات', 'الإحصاء'],
+  'اللغة الفرنسية': ['اللغة الفرنسية', 'اختيار حر'],
+};
+const deptSubjects = (dp, teachers) => [...new Set([...(SUBJECTS[dp] || []), ...teachers.flatMap(t => t.subjects || [])])];
+// The subject of one class: the class's own, else the teacher's only subject.
+const subjOf = (t, c) => (t.subj || {})[c] || ((t.subjects || []).length === 1 ? t.subjects[0] : '');
 const nisab = t => CLASSES.reduce((a, c) => a + (t.cells[c] || 0), 0);
 const sum = (arr, f) => arr.reduce((a, x) => a + f(x), 0);
 // Classes assigned to more than one teacher in the same department.
@@ -405,6 +416,22 @@ function teacherCard(t, i, dup) {
   const nameEl = t.added ? el('input', { value: t.name, placeholder: 'اسم المعلم', maxLength: 120 }) : el('strong', { textContent: (i + 1) + '. ' + t.name });
   if (t.added) nameEl.oninput = () => { t.name = nameEl.value.trim(); changed(); };
   box.append(el('div', { className: 'row', style: 'margin-top:0;justify-content:space-between' }, nameEl, el('div', { className: 'row', style: 'margin-top:0' }, tag, remove)));
+  // Multi-subject departments: the teacher's subjects, one tap each.
+  const subjects = deptSubjects(BUDGET.department, BUDGET.data.teachers);
+  if (subjects.length) {
+    t.subjects = t.subjects || [];
+    const row = el('div', { className: 'subjects' });
+    subjects.forEach(sj => {
+      const on = t.subjects.includes(sj);
+      const b = el('button', { className: 'sub' + (on ? ' on' : ''), type: 'button', textContent: sj });
+      b.onclick = () => { t.subjects = on ? t.subjects.filter(x => x !== sj) : [...t.subjects, sj]; changed(); renderTeachers(); };
+      row.append(b);
+    });
+    const add = el('button', { className: 'sub', type: 'button', textContent: '+ مادة' });
+    add.onclick = () => { const v = (prompt('اسم المادة') || '').trim().slice(0, 40); if (v && !t.subjects.includes(v)) { t.subjects.push(v); changed(); renderTeachers(); } };
+    row.append(add);
+    box.append(row);
+  }
   // One row per grade, equal cells: a class sits in the same spot on every card.
   // Tap toggles the class; long press changes its periods when they differ from the grade default.
   const editor = el('div');
@@ -415,15 +442,22 @@ function teacherCard(t, i, dup) {
       const on = c in t.cells;
       const def = BUDGET.data.periods[g.track];
       const odd = on && def !== null && def !== undefined && t.cells[c] !== def;
-      const b = el('button', { className: 'cell' + (on ? ' on' : '') + (dup.has(c) && on ? ' dup' : '') + (odd ? ' odd' : ''), type: 'button', title: cls(c) },
-        el('span', { textContent: c.split('-')[1] }), on ? el('small', { textContent: t.cells[c] }) : null);
+      const sj = on ? subjOf(t, c) : '';
+      const b = el('button', { className: 'cell' + (on ? ' on' : '') + (dup.has(c) && on ? ' dup' : '') + (odd ? ' odd' : ''), type: 'button', title: cls(c) + (sj ? ' — ' + sj : '') },
+        el('span', { textContent: c.split('-')[1] }), on ? el('small', { textContent: t.cells[c] + (sj && (t.subjects || []).length > 1 ? ' ' + sj.replace(/^ال/, '').slice(0, 3) : '') }) : null);
       let timer = null, held = false;
       const editPeriods = () => {
         const inp = el('input', { type: 'number', inputMode: 'numeric', min: 0, max: 40, value: t.cells[c] ?? def ?? '' });
         const ok = el('button', { className: 'ghost', type: 'button', textContent: 'تم' });
-        ok.onclick = () => { t.cells[c] = Number(inp.value) || 0; changed(); renderTeachers(); };
+        // A teacher with several subjects says which one this class gets.
+        const pick = (t.subjects || []).length > 1 ? el('select', {}, el('option', { value: '', textContent: 'المادة؟' }), ...t.subjects.map(x => el('option', { value: x, textContent: x, selected: (t.subj || {})[c] === x }))) : null;
+        ok.onclick = () => {
+          t.cells[c] = Number(inp.value) || 0;
+          if (pick) { t.subj = t.subj || {}; if (pick.value) t.subj[c] = pick.value; else delete t.subj[c]; }
+          changed(); renderTeachers();
+        };
         inp.onkeydown = e => { if (e.key === 'Enter') ok.click(); };
-        editor.replaceChildren(el('div', { className: 'cellEdit' }, el('span', { textContent: 'حصص ' + cls(c) + ':' }), inp, ok));
+        editor.replaceChildren(el('div', { className: 'cellEdit' }, el('span', { textContent: 'حصص ' + cls(c) + ':' }), inp, pick, ok));
         inp.focus(); inp.select();
       };
       b.onpointerdown = () => { held = false; timer = setTimeout(() => { held = true; editPeriods(); }, 500); };
@@ -476,7 +510,7 @@ let SCHOOL = [];
 $('tabSchool').onclick = () => tab('school');
 $('schoolRefresh').onclick = loadSchool;
 $('schoolPrint').onclick = () => { $('schoolDetail').classList.remove('hidden'); print(); };
-$('schoolToggle').onclick = () => { const h = $('schoolDetail').classList.toggle('hidden'); $('schoolToggle').textContent = h ? 'عرض التفاصيل' : 'إخفاء التفاصيل'; };
+$('schoolToggle').onclick = () => { if ($('schoolDetail').classList.contains('hidden')) showDetail(SCHOOL_ROWS); else { $('schoolDetail').classList.add('hidden'); $('schoolToggle').textContent = 'عرض التفاصيل'; } };
 async function loadSchool() {
   $('schoolMsg').textContent = 'جارٍ التحميل...';
   try { SCHOOL = (await call('budgets')).rows; renderSchool(); $('schoolMsg').textContent = ''; }
@@ -497,21 +531,36 @@ function renderSchool() {
     el('tbody', {}, ...rows.map(r => {
       const edit = el('button', { className: 'ghost noprint', textContent: 'تعديل', style: 'padding:4px 12px' });
       edit.onclick = () => openBudget(r.dp, 'المدير', () => { $('admin').classList.remove('hidden'); loadSchool(); });
+      const view = el('button', { className: 'ghost noprint', textContent: 'معاينة', style: 'padding:4px 12px' });
+      view.onclick = () => showDetail([r]);
       return el('tr', {}, td(r.dp), td(r.head), td(r.req), td(r.have), td(r.gap, r.gap > 0 ? 'neg' : ''), td(r.periods),
-        td(r.b ? new Date(r.b.updated_at).toLocaleDateString('ar-KW') + ' · ' + (r.b.updated_by || '') : 'لم تُدخل بعد'), el('td', {}, edit));
+        td(r.b ? new Date(r.b.updated_at).toLocaleDateString('ar-KW') + ' · ' + (r.b.updated_by || '') : 'لم تُدخل بعد'), el('td', {}, el('div', { className: 'row', style: 'margin:0;flex-wrap:nowrap;justify-content:center' }, r.b ? view : null, edit)));
     }),
     el('tr', { className: 'tot' }, td('المجموع'), td(''), td(sum(rows, r => r.req || 0)), td(sum(rows, r => r.have)), td(sum(rows, r => r.gap > 0 ? r.gap : 0)), td(sum(rows, r => r.periods)), td(''), td(''))));
   $('schoolSummary').replaceChildren(el('h2', { textContent: 'ميزانية المدرسة ' }), el('div', { className: 'meta', textContent: rows.filter(r => r.b).length + ' من ' + rows.length + ' أقسام أدخلت ميزانيتها' }), el('div', { className: 'wrap' }, table));
-  $('schoolDetail').replaceChildren(...rows.filter(r => r.b).map(r => deptTable(r)));
+  SCHOOL_ROWS = rows.filter(r => r.b);
+  $('schoolDetail').replaceChildren(...SCHOOL_ROWS.map(r => deptTable(r)));
+}
+// Read-only view of one department (or all), scrolled into view.
+let SCHOOL_ROWS = [];
+function showDetail(rows) {
+  const one = rows.length === 1;
+  const all = el('button', { className: 'ghost noprint', textContent: 'عرض كل الأقسام', style: 'margin-bottom:10px' });
+  all.onclick = () => showDetail(SCHOOL_ROWS);
+  $('schoolDetail').replaceChildren(...(one ? [all] : []), ...rows.map(r => deptTable(r)));
+  $('schoolDetail').classList.remove('hidden'); $('schoolToggle').textContent = 'إخفاء التفاصيل';
+  $('schoolDetail').scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
 }
 // The department's budget in the layout of the paper form: teacher × classes, then نصاب and notes.
 function deptTable(r) {
-  const d = r.b.data, dup = dupes(d.teachers);
+  const d = r.b.data, dup = dupes(d.teachers), multi = deptSubjects(r.dp, d.teachers).length > 0;
   const th = (t, props) => el('th', Object.assign({ textContent: t }, props || {}));
-  const head1 = el('tr', {}, th('م', { rowSpan: 2 }), th('المعلم', { rowSpan: 2 }), ...GRADES.map(g => th(g.label, { colSpan: g.classes.length })), th('النصاب', { rowSpan: 2 }), th('ملاحظات', { rowSpan: 2 }));
+  const head1 = el('tr', {}, th('م', { rowSpan: 2 }), th('المعلم', { rowSpan: 2 }), ...(multi ? [th('المادة', { rowSpan: 2 })] : []), ...GRADES.map(g => th(g.label, { colSpan: g.classes.length })), th('النصاب', { rowSpan: 2 }), th('ملاحظات', { rowSpan: 2 }));
   const head2 = el('tr', {}, ...CLASSES.map(c => th(clsShort(c))));
   const body = d.teachers.map((t, i) => el('tr', {}, el('td', { textContent: i + 1 }), el('td', { className: 'n', textContent: t.name }),
-    ...CLASSES.map(c => el('td', { className: c in t.cells ? (dup.has(c) ? 'dup' : 'on') : '', textContent: c in t.cells ? t.cells[c] : '' })),
+    ...(multi ? [el('td', { className: 'n', textContent: (t.subjects || []).join(' / ') })] : []),
+    ...CLASSES.map(c => { const sj = c in t.cells && (t.subjects || []).length > 1 ? subjOf(t, c) : '';
+      return el('td', { className: c in t.cells ? (dup.has(c) ? 'dup' : 'on') : '', title: sj }, c in t.cells ? String(t.cells[c]) : '', sj ? el('div', { className: 'sj', textContent: sj.replace(/^ال/, '') }) : null); }),
     el('td', { textContent: nisab(t) }), el('td', { className: 'n', textContent: t.note || '' })));
   const per = GRADES.map(g => g.short + ': ' + (d.periods[g.track] ?? '—')).join(' · ');
   return el('div', { className: 'card' },

@@ -75,6 +75,14 @@
   .mine { display:inline-block; padding:1px 10px; border-radius:99px; font-size:12px; font-weight:700; background:#e8f1f7; color:var(--blue); }
   .contact { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
   /* Budget editor: one card per teacher, a grade × section grid. */
+  #beTitle { font-size:16px; flex:1; min-width:0; }
+  #beBack { flex:none; padding:6px 14px; }
+  .subjects { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
+  .sub { padding:3px 10px; border-radius:99px; border:1.5px solid var(--line); background:#fff; color:var(--mute); font-size:13px; font-weight:400; box-shadow:none; }
+  .sub.on { background:var(--gold-soft); border-color:var(--gold); color:#7a5300; font-weight:700; }
+  .sub:hover { box-shadow:none; border-color:var(--gold); }
+  .cellEdit select { padding:6px 8px; border:1.5px solid var(--line); border-radius:10px; font:inherit; }
+  table.bt .sj { font-size:9px; color:var(--mute); line-height:1; }
   .cgrid { display:grid; grid-template-columns:58px repeat(7, 1fr); gap:4px; margin-top:10px; }
   .glabel { font-size:12px; font-weight:700; color:var(--mute); display:flex; align-items:center; }
   .cell { position:relative; height:40px; padding:0; border-radius:9px; border:1.5px solid var(--line); background:#fbfdfe; color:var(--ink); font-weight:400; font-size:14px; box-shadow:none; display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.1; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; touch-action:manipulation; }

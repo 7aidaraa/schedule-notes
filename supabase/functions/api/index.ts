@@ -62,7 +62,11 @@ function cleanBudget(d: Record<string, any>) {
   const teachers = (Array.isArray(d?.teachers) ? d.teachers : []).slice(0, 40).map((t: any) => {
     const cells: Record<string, number> = {};
     for (const c of CLASSES) { const n = int(t?.cells?.[c], 40); if (n !== null) cells[c] = n; }
-    return { name: str(t?.name, 120), cells, note: str(t?.note, 300) };
+    // Subjects (multi-subject departments) and, per class, which subject the teacher gives there.
+    const subjects = [...new Set((Array.isArray(t?.subjects) ? t.subjects : []).map((x: unknown) => str(x, 40)).filter(Boolean))].slice(0, 8);
+    const subj: Record<string, string> = {};
+    for (const c of CLASSES) { const x = str(t?.subj?.[c], 40); if (x && c in cells) subj[c] = x; }
+    return { name: str(t?.name, 120), cells, note: str(t?.note, 300), subjects, subj };
   }).filter((t: any) => t.name);
   return { periods, required: int(d?.required, 99), note: str(d?.note, 1000), teachers };
 }
