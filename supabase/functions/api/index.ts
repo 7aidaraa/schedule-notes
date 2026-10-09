@@ -256,6 +256,38 @@ Deno.serve(async (req) => {
     const { error } = await db.from("constraints").update({ checked: !!body.checked }).eq("id", Number(body.id));
     return error ? fail("تعذر التحديث", 500) : json({ ok: true });
   }
+  if (action === "rule_save") {
+    // Edit (id) or add (section) a constraint. A request's constraint keeps that request's field in step.
+    const f = { department: str(body.department, 80), teacher: str(body.teacher, 200), text: str(body.text, 3000), level: str(body.level, 40) };
+    if (!f.text) return fail("نص القيد مطلوب");
+    if (body.id) {
+      const { data: old } = await db.from("constraints").select("text,request_id").eq("id", Number(body.id)).maybeSingle();
+      if (!old) return fail("القيد غير موجود", 404);
+      const { error } = await db.from("constraints").update(old.text !== f.text ? { ...f, checked: false } : f).eq("id", Number(body.id));
+      if (error) return fail("تعذر الحفظ", 500);
+      if (old.request_id) await db.from("requests").update({ note: f.text }).eq("id", old.request_id);
+      return json({ ok: true, id: Number(body.id) });
+    }
+    const section = str(body.section, 40);
+    if (!section) return fail("المجموعة مطلوبة");
+    const { data: last } = await db.from("constraints").select("pos").eq("section", section).order("pos", { ascending: false }).limit(1).maybeSingle();
+    const { data, error } = await db.from("constraints").insert({ ...f, section, pos: (last?.pos ?? 0) + 1 }).select("id,pos").single();
+    return error ? fail("تعذر الحفظ", 500) : json({ ok: true, id: data.id });
+  }
+  if (action === "rule_delete") {
+    const { data: old } = await db.from("constraints").select("request_id").eq("id", Number(body.id)).maybeSingle();
+    if (!old) return fail("القيد غير موجود", 404);
+    const { error } = await db.from("constraints").delete().eq("id", Number(body.id));
+    if (error) return fail("تعذر الحذف", 500);
+    if (old.request_id) await db.from("requests").update({ note: "" }).eq("id", old.request_id);
+    return json({ ok: true });
+  }
+  if (action === "rules_order") {
+    // The ids of one group in their new order.
+    const ids = (Array.isArray(body.ids) ? body.ids : []).slice(0, 300).map(Number).filter(Number.isFinite);
+    const res = await Promise.all(ids.map((id: number, i: number) => db.from("constraints").update({ pos: i + 1 }).eq("id", id)));
+    return res.some((r) => r.error) ? fail("تعذر حفظ الترتيب", 500) : json({ ok: true });
+  }
   if (action === "rules_reset") {
     const { error } = await db.from("constraints").update({ checked: false }).eq("checked", true);
     return error ? fail("تعذر رفع الشطب", 500) : json({ ok: true });

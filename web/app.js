@@ -298,11 +298,73 @@ async function loadRules() {
   catch (e) { $('rulesMsg').textContent = e; }
 }
 $('rulesRefresh').onclick = loadRules;
-function ruleItem(x) {
+// Edit mode: ✏️ edit, 🗑️ delete (two taps), ⬆️⬇️ order within the group, + add; ticking is off meanwhile.
+let EDIT = false, EDITING = null, delArmed = { id: null, at: 0 };
+$('rulesEdit').onclick = () => { EDIT = !EDIT; EDITING = null; $('rulesEdit').textContent = EDIT ? 'إنهاء التحرير' : 'تحرير القائمة'; $('rulesEdit').className = EDIT ? 'warn' : 'ghost'; renderRules(); };
+const meta = x => el('span', { className: 'm' }, [x.department, x.teacher].filter(Boolean).join(' · '), x.level ? el('span', { className: 'lv', textContent: x.level }) : null);
+function ruleForm(x, section) {
+  const text = el('textarea', { value: x ? x.text : '', placeholder: 'نص القيد', maxLength: 3000 });
+  const dep = el('input', { value: x ? x.department : '', placeholder: 'القسم', maxLength: 80 });
+  const tea = el('input', { value: x ? x.teacher : '', placeholder: 'المعلم', maxLength: 200 });
+  const lvl = el('input', { value: x ? x.level : '', placeholder: 'الإلزام (صلب، مرن، لازم…)', maxLength: 40 });
+  const fmsg = el('span', { className: 'meta' });
+  const save = el('button', { type: 'button', textContent: 'حفظ' });
+  const cancel = el('button', { type: 'button', className: 'ghost', textContent: 'إلغاء' });
+  cancel.onclick = () => { EDITING = null; renderRules(); };
+  save.onclick = async () => {
+    const f = { text: text.value.trim(), department: dep.value.trim(), teacher: tea.value.trim(), level: lvl.value.trim() };
+    if (!f.text) { fmsg.textContent = 'نص القيد مطلوب'; return; }
+    save.disabled = true;
+    try {
+      const o = await call('rule_save', x ? { id: x.id, ...f } : { section, ...f });
+      if (x) {
+        if (x.text !== f.text) x.checked = false;
+        Object.assign(x, f);
+        const r = x.request_id && ROWS.find(r => r.id === x.request_id); if (r) r.note = f.text;
+      } else RULES.push({ id: o.id, section, checked: false, request_id: null, ...f });
+      EDITING = null; renderRules();
+    } catch (e) { fmsg.textContent = e; save.disabled = false; }
+  };
+  return el('div', { className: 'ruleForm' }, text, el('div', { className: 'ruleFields' }, dep, tea, lvl), el('div', { className: 'row' }, save, cancel, fmsg));
+}
+async function moveRule(x, d) {
+  const list = RULES.filter(y => y.section === x.section), i = list.indexOf(x), j = i + d;
+  if (j < 0 || j >= list.length) return;
+  [list[i], list[j]] = [list[j], list[i]];
+  RULES = [...RULES.filter(y => y.section !== x.section), ...list];
+  renderRules();
+  try { await call('rules_order', { ids: list.map(y => y.id) }); }
+  catch (e) { $('rulesMsg').textContent = e; loadRules(); }
+}
+function ruleItem(x, i, list) {
+  if (EDIT) {
+    if (EDITING === x.id) return ruleForm(x);
+    const ib = (t, label, fn, dis) => { const b = el('button', { type: 'button', className: 'ib', textContent: t, title: label, ariaLabel: label, disabled: !!dis }); b.onclick = fn; return b; };
+    const armed = delArmed.id === x.id && Date.now() - delArmed.at < 4000;
+    const del = ib(armed ? 'تأكيد الحذف' : '🗑️', 'حذف', async () => {
+      if (!(delArmed.id === x.id && Date.now() - delArmed.at < 4000)) {
+        delArmed = { id: x.id, at: Date.now() }; renderRules();
+        setTimeout(() => { if (delArmed.id === x.id) { delArmed = { id: null, at: 0 }; renderRules(); } }, 4100);
+        return;
+      }
+      delArmed = { id: null, at: 0 };
+      try {
+        await call('rule_delete', { id: x.id });
+        RULES = RULES.filter(y => y !== x);
+        const r = x.request_id && ROWS.find(r => r.id === x.request_id); if (r) r.note = '';
+        renderRules();
+      } catch (e) { $('rulesMsg').textContent = e; }
+    });
+    if (armed) del.className = 'ib warn';
+    return el('div', { className: 'rule editing' },
+      el('span', {}, el('span', { className: 't', textContent: x.text }), meta(x)),
+      el('span', { className: 'tools' },
+        ib('⬆️', 'إلى الأعلى', () => moveRule(x, -1), i === 0), ib('⬇️', 'إلى الأسفل', () => moveRule(x, 1), i === list.length - 1),
+        ib('✏️', 'تعديل', () => { EDITING = x.id; renderRules(); }), del));
+  }
   const b = el('button', { type: 'button', className: 'rule' + (x.checked ? ' on' : '') },
     el('span', { className: 'box', textContent: x.checked ? '✓' : '' }),
-    el('span', {}, el('span', { className: 't', textContent: x.text }),
-      el('span', { className: 'm' }, [x.department, x.teacher].filter(Boolean).join(' · '), x.level ? el('span', { className: 'lv', textContent: x.level }) : null)));
+    el('span', {}, el('span', { className: 't', textContent: x.text }), meta(x)));
   b.onclick = async () => {
     x.checked = !x.checked; renderRules();
     try { await call('rule_check', { id: x.id, checked: x.checked }); }
@@ -315,12 +377,15 @@ function renderRules() {
   const done = rows.filter(x => x.checked).length;
   $('rulesMsg').textContent = rows.length ? 'مستوفى ' + done + ' من ' + rows.length + (done === rows.length ? ' — اكتملت ✓' : '') : '';
   const secs = [...SECTIONS, ...new Set(rows.map(x => x.section).filter(s => !SECTIONS.includes(s)))];
-  $('rulesList').replaceChildren(...(rows.length ? secs.map(s => {
+  const cards = secs.map(s => {
     const list = rows.filter(x => x.section === s);
-    if (!list.length) return null;
+    if (!list.length && !EDIT) return null;
     const n = list.filter(x => x.checked).length;
-    return el('div', { className: 'card' }, el('h2', { textContent: s + ' (' + n + '/' + list.length + ')' }), ...list.map(ruleItem));
-  }).filter(Boolean) : [el('div', { className: 'card meta', textContent: 'لا توجد قيود بعد' })]));
+    const add = EDIT && (EDITING === 'new:' + s ? ruleForm(null, s)
+      : Object.assign(el('button', { type: 'button', className: 'ghost addRule', textContent: '+ إضافة قيد' }), { onclick: () => { EDITING = 'new:' + s; renderRules(); } }));
+    return el('div', { className: 'card' }, el('h2', { textContent: s + ' (' + n + '/' + list.length + ')' }), ...list.map(ruleItem), add || null);
+  }).filter(Boolean);
+  $('rulesList').replaceChildren(...(cards.length ? cards : [el('div', { className: 'card meta', textContent: 'لا توجد قيود بعد' })]));
 }
 // Two taps (no confirm(): in-app browsers block it).
 let resetArmed = 0;

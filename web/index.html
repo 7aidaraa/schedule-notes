@@ -134,6 +134,18 @@
   .rule.on .t { text-decoration:line-through; color:var(--mute); }
   .rule .m { display:block; font-size:13px; color:var(--mute); }
   .rule .lv { display:inline-block; margin-inline-start:6px; padding:0 8px; border-radius:99px; font-size:12px; background:#e8f1f7; color:var(--blue); }
+  .rule.editing { justify-content:space-between; cursor:default; }
+  .rule.editing:hover { background:none; }
+  .rule .tools { flex:none; display:flex; gap:4px; }
+  button.ib { padding:4px 8px; background:#fff; border:1.5px solid var(--line); border-radius:10px; font-size:15px; font-weight:400; color:var(--ink); box-shadow:none; }
+  button.ib:disabled { opacity:.3; cursor:default; }
+  button.ib.warn { background:var(--gold); border-color:var(--gold); font-size:13px; font-weight:700; }
+  .ruleForm { padding:10px 0; border-bottom:1px solid var(--line); }
+  .ruleForm textarea { min-height:70px; }
+  .ruleFields { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-top:6px; }
+  .ruleFields input { padding:8px; font-size:14px; }
+  @media (max-width:520px) { .ruleFields { grid-template-columns:1fr; } }
+  .addRule { width:100%; margin-top:10px; border-style:dashed; }
   button.warn { background:var(--gold); color:#2b1d00; }
   footer { text-align:center; color:var(--mute); font-size:13px; padding:8px 16px 28px; }
   @media (prefers-reduced-motion: reduce) { * { transition:none !important; } }
@@ -159,7 +171,7 @@
   <section id="admin" class="hidden">
     <div class="tabs"><button id="tabReq" class="ghost on">الطلبات</button><button id="tabBook" class="ghost">أرقام المعلمين</button><button id="tabAdd" class="ghost">إضافة طلب</button><button id="tabSchool" class="ghost">ميزانية المدرسة</button><button id="tabRules" class="ghost">قيود الجدول</button></div>
     <div id="rules" class="hidden">
-      <div class="row" style="margin:0 0 12px"><button id="rulesRefresh" class="ghost">تحديث</button><button id="rulesReset" class="ghost">رفع الشطب عن الكل</button><span id="rulesMsg" class="meta"></span></div>
+      <div class="row" style="margin:0 0 12px"><button id="rulesRefresh" class="ghost">تحديث</button><button id="rulesReset" class="ghost">رفع الشطب عن الكل</button><button id="rulesEdit" class="ghost">تحرير القائمة</button><span id="rulesMsg" class="meta"></span></div>
       <div id="rulesList"></div>
     </div>
     <div id="school" class="hidden">
