@@ -505,6 +505,38 @@ function showBudgetState() {
   }).catch(() => {});
 }
 
+// ---- Export for the timetable sheet: one row per teacher × class × subject ----
+// Subject names as the sheet's «التوزيع» columns spell them; single-subject departments use the department name.
+const SHEET_SUBJECT = { 'تاريخ الكويت': 'الاجتماعيات', 'اختيار حر': 'اللغة الفرنسية (اختيار حرّ)' };
+const sheetClass = c => { const [g, n] = c.split('-'); return g === '10' ? '10/' + n : g.slice(0, 2) + (g.endsWith('a') ? 'د' : 'ع') + n; };
+function exportRows() {
+  const rows = [];
+  for (const b of SCHOOL) {
+    if (!TEACHERS.some(t => t.department === b.department)) continue; // departments that no longer exist
+    const multi = deptSubjects(b.department, b.data.teachers).length > 0;
+    for (const t of b.data.teachers) {
+      const nick = (TEACHERS.find(x => x.name === t.name) || {}).nick || t.name;
+      for (const c of CLASSES) {
+        if (!(c in t.cells)) continue;
+        let sj = multi ? (subjOf(t, c) || (t.subjects || [])[0] || '') : b.department;
+        sj = SHEET_SUBJECT[sj] || sj;
+        rows.push([nick, t.name, b.department, sheetClass(c), sj, t.cells[c]]);
+      }
+    }
+  }
+  return rows;
+}
+$('schoolCsv').onclick = () => {
+  const rows = exportRows();
+  if (!rows.length) { $('schoolMsg').textContent = 'لا توجد ميزانيات للتصدير'; return; }
+  const q = v => '"' + String(v).replace(/"/g, '""') + '"';
+  const csv = '\uFEFF' + [['اسم الشهرة', 'الاسم الثلاثي', 'القسم', 'الصف', 'المادة', 'الحصص'], ...rows].map(r => r.map(q).join(',')).join('\r\n');
+  const a = el('a', { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })), download: 'ميزانية_المنصة_' + new Date().toISOString().slice(0, 10) + '.csv' });
+  document.body.append(a); a.click(); a.remove();
+  const blank = rows.filter(r => !r[4]).length;
+  $('schoolMsg').textContent = rows.length + ' سطراً، ' + new Set(rows.map(r => r[0])).size + ' معلماً' + (blank ? ' — ' + blank + ' بلا مادة' : '');
+};
+
 // ---- Admin: the whole school on one page ----
 let SCHOOL = [];
 $('tabSchool').onclick = () => tab('school');

@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
 
   if (action === "login") {
     // Department → teacher names for the form's dropdowns (only after a valid password).
-    const { data } = await db.from("teachers").select("name,department,is_head").order("department").order("name");
+    const { data } = await db.from("teachers").select("name,department,is_head,nick").order("department").order("name");
     return json({ role, teachers: data ?? [] });
   }
 
