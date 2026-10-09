@@ -315,6 +315,10 @@ const trackOf = c => GRADES.find(g => g.classes.includes(c)).track;
 const cls = c => { const [g, n] = c.split('-'); return g.replace('a', 'د').replace('s', 'ع') + n; };
 const clsShort = c => { const [g, n] = c.split('-'); return g === '10' ? n : g.slice(2).replace('a', 'د').replace('s', 'ع') + n; };
 // Subjects offered in multi-subject departments; a saved subject not listed here is added when the editor opens.
+// Official weekly periods per subject per class (sheet «المواد»). Subject names as the sheet spells them.
+const OFFICIAL = {"التربية الإسلامية":{"10-1":3,"10-2":3,"10-3":3,"10-4":3,"10-5":3,"10-6":3,"11a-1":3,"11s-1":3,"11s-2":3,"11s-3":3,"11s-4":3,"11s-5":3,"12a-1":3,"12s-1":3,"12s-2":3,"12s-3":3,"12s-4":3,"12s-5":3},"اللغة العربية":{"10-1":6,"10-2":6,"10-3":6,"10-4":6,"10-5":6,"10-6":6,"11a-1":6,"11s-1":6,"11s-2":6,"11s-3":6,"11s-4":6,"11s-5":6,"12a-1":6,"12s-1":6,"12s-2":6,"12s-3":6,"12s-4":6,"12s-5":6},"اللغة الإنجليزية":{"10-1":5,"10-2":5,"10-3":5,"10-4":5,"10-5":5,"10-6":5,"11a-1":6,"11s-1":5,"11s-2":5,"11s-3":5,"11s-4":5,"11s-5":5,"12a-1":5,"12s-1":5,"12s-2":5,"12s-3":5,"12s-4":5,"12s-5":5},"الرياضيات":{"10-1":6,"10-2":6,"10-3":6,"10-4":6,"10-5":6,"10-6":6,"11s-1":6,"11s-2":6,"11s-3":6,"11s-4":6,"11s-5":6,"12s-1":6,"12s-2":6,"12s-3":6,"12s-4":6,"12s-5":6},"الكيمياء":{"10-1":3,"10-2":3,"10-3":3,"10-4":3,"10-5":3,"10-6":3,"11s-1":3,"11s-2":3,"11s-3":3,"11s-4":3,"11s-5":3,"12s-1":3,"12s-2":3,"12s-3":3,"12s-4":3,"12s-5":3},"الفيزياء":{"10-1":3,"10-2":3,"10-3":3,"10-4":3,"10-5":3,"10-6":3,"11s-1":3,"11s-2":3,"11s-3":3,"11s-4":3,"11s-5":3,"12s-1":3,"12s-2":3,"12s-3":3,"12s-4":3,"12s-5":3},"الأحياء":{"10-1":2,"10-2":2,"10-3":2,"10-4":2,"10-5":2,"10-6":2,"11s-1":2,"11s-2":2,"11s-3":2,"11s-4":2,"11s-5":2,"12s-1":3,"12s-2":3,"12s-3":3,"12s-4":3,"12s-5":3},"الاجتماعيات":{"10-1":3,"10-2":3,"10-3":3,"10-4":3,"10-5":3,"10-6":3},"الحاسوب":{"10-1":2,"10-2":2,"10-3":2,"10-4":2,"10-5":2,"10-6":2,"11a-1":1,"11s-1":1,"11s-2":1,"11s-3":1,"11s-4":1,"11s-5":1,"12a-1":1,"12s-1":1,"12s-2":1,"12s-3":1,"12s-4":1,"12s-5":1},"التربية البدنية":{"10-1":2,"10-2":2,"10-3":2,"10-4":2,"10-5":2,"10-6":2,"11a-1":1,"11s-1":1,"11s-2":1,"11s-3":1,"11s-4":1,"11s-5":1,"12a-1":1,"12s-1":1,"12s-2":1,"12s-3":1,"12s-4":1,"12s-5":1},"المجموع":{"10-1":35,"10-2":35,"10-3":35,"10-4":35,"10-5":35,"10-6":35,"11a-1":35,"11s-1":35,"11s-2":35,"11s-3":35,"11s-4":35,"11s-5":35,"12a-1":35,"12s-1":35,"12s-2":35,"12s-3":35,"12s-4":35,"12s-5":35},"اللغة الفرنسية":{"11a-1":5,"12a-1":5},"التاريخ":{"11a-1":3,"12a-1":3},"الجغرافيا":{"11a-1":3,"12a-1":3},"علم النفس":{"11a-1":2},"التربية الموسيقية":{"11a-1":2,"11s-1":2,"11s-2":2,"11s-3":2,"11s-4":2,"11s-5":2},"الإحصاء":{"11a-1":2,"12a-1":2},"اللغة الفرنسية (اختيار حرّ)":{"11a-1":1,"12a-1":1},"الجيولوجيا":{"11s-1":2,"11s-2":2,"11s-3":2,"11s-4":2,"11s-5":2},"المكتبات":{"11s-1":1,"12s-1":1,"12s-4":1},"التربية البيئية":{"11s-2":1,"11s-3":1,"11s-4":1,"11s-5":1},"الفلسفة":{"12a-1":2},"الدستور":{"12a-1":1,"12s-1":1,"12s-2":1,"12s-3":1,"12s-4":1,"12s-5":1},"التربية الفنية":{"12a-1":2,"12s-1":2,"12s-2":2,"12s-3":2,"12s-4":2,"12s-5":2},"الدراسات العملية":{"12s-2":1,"12s-3":1,"12s-5":1}};
+// Sections that exist in the ministry form but not in the school this year: hidden unless a teacher already has them.
+const HIDDEN = ['10-7', '11a-2'];
 const SUBJECTS = {
   'الاجتماعيات': ['تاريخ الكويت', 'الدستور', 'علم النفس', 'الجغرافيا', 'التاريخ', 'الفلسفة'],
   'الفيزياء والكيمياء': ['الفيزياء', 'الكيمياء'],
@@ -325,6 +329,8 @@ const SUBJECTS = {
 const deptSubjects = (dp, teachers) => [...new Set([...(SUBJECTS[dp] || []), ...teachers.flatMap(t => t.subjects || [])])];
 // The subject of one class: the class's own, else the teacher's only subject.
 const subjOf = (t, c) => (t.subj || {})[c] || ((t.subjects || []).length === 1 ? t.subjects[0] : '');
+const sheetSubjectOf = (dp, t, c) => { const multi = (SUBJECTS[dp] || []).length > 0; const sj = multi ? (subjOf(t, c) || (t.subjects || [])[0] || '') : dp; return SHEET_SUBJECT[sj] || sj; };
+const officialOf = (dp, t, c) => { const o = OFFICIAL[sheetSubjectOf(dp, t, c)]; return o && c in o ? o[c] : null; };
 const nisab = t => CLASSES.reduce((a, c) => a + (t.cells[c] || 0), 0);
 const sum = (arr, f) => arr.reduce((a, x) => a + f(x), 0);
 // Classes assigned to more than one teacher in the same department.
@@ -380,7 +386,7 @@ window.addEventListener('beforeunload', e => { if (dirty) { saveBudget(); e.prev
 function renderBudget() {
   const d = BUDGET.data;
   $('bePeriods').replaceChildren(...GRADES.map(g => {
-    const inp = el('input', { type: 'number', inputMode: 'numeric', min: 0, max: 40, value: d.periods[g.track] ?? '', placeholder: '—' });
+    const inp = el('input', { type: 'number', inputMode: 'numeric', min: 0, max: 40, value: d.periods[g.track] ?? '', placeholder: '—', title: 'يُستعمل حين لا يكون للمادة عدد مقرر في هذا الصف' });
     inp.oninput = () => {
       const old = d.periods[g.track], now = inp.value === '' ? null : Number(inp.value);
       d.periods[g.track] = now;
@@ -440,10 +446,12 @@ function teacherCard(t, i, dup) {
     grid.append(el('div', { className: 'glabel', textContent: g.short }));
     g.classes.forEach(c => {
       const on = c in t.cells;
-      const def = BUDGET.data.periods[g.track];
+      if (HIDDEN.includes(c) && !BUDGET.data.teachers.some(x => c in x.cells)) { grid.append(el('div')); return; }
+      const official = officialOf(BUDGET.department, t, c);
+      const def = official ?? BUDGET.data.periods[g.track];
       const odd = on && def !== null && def !== undefined && t.cells[c] !== def;
       const sj = on ? subjOf(t, c) : '';
-      const b = el('button', { className: 'cell' + (on ? ' on' : '') + (dup.has(c) && on ? ' dup' : '') + (odd ? ' odd' : ''), type: 'button', title: cls(c) + (sj ? ' — ' + sj : '') },
+      const b = el('button', { className: 'cell' + (on ? ' on' : '') + (dup.has(c) && on ? ' dup' : '') + (odd ? ' odd' : ''), type: 'button', title: cls(c) + (sj ? ' — ' + sj : '') + (official !== null ? ' — المقرر ' + official : '') },
         el('span', { textContent: c.split('-')[1] }), on ? el('small', { textContent: t.cells[c] + (sj && (t.subjects || []).length > 1 ? ' ' + sj.replace(/^ال/, '').slice(0, 3) : '') }) : null);
       let timer = null, held = false;
       const editPeriods = () => {
@@ -472,6 +480,7 @@ function teacherCard(t, i, dup) {
       grid.append(b);
     });
     for (let k = g.classes.length; k < 7; k++) grid.append(el('div'));
+    if (g.classes.every(c => HIDDEN.includes(c))) grid.lastChild.remove();
   });
   box.append(grid);
   const note = el('input', { value: t.note || '', placeholder: 'ملاحظة (اختياري)', maxLength: 300, style: 'margin-top:8px;font-size:14px;padding:7px 10px' });
@@ -513,14 +522,11 @@ function exportRows() {
   const rows = [];
   for (const b of SCHOOL) {
     if (!TEACHERS.some(t => t.department === b.department)) continue; // departments that no longer exist
-    const multi = deptSubjects(b.department, b.data.teachers).length > 0;
     for (const t of b.data.teachers) {
-      const nick = (TEACHERS.find(x => x.name === t.name) || {}).nick || t.name;
+      const tt = TEACHERS.find(x => x.name === t.name) || {};
       for (const c of CLASSES) {
         if (!(c in t.cells)) continue;
-        let sj = multi ? (subjOf(t, c) || (t.subjects || [])[0] || '') : b.department;
-        sj = SHEET_SUBJECT[sj] || sj;
-        rows.push([nick, t.name, b.department, sheetClass(c), sj, t.cells[c]]);
+        rows.push([tt.uid || '', tt.nick || t.name, t.name, b.department, sheetClass(c), sheetSubjectOf(b.department, t, c), t.cells[c]]);
       }
     }
   }
@@ -530,11 +536,11 @@ $('schoolCsv').onclick = () => {
   const rows = exportRows();
   if (!rows.length) { $('schoolMsg').textContent = 'لا توجد ميزانيات للتصدير'; return; }
   const q = v => '"' + String(v).replace(/"/g, '""') + '"';
-  const csv = '\uFEFF' + [['اسم الشهرة', 'الاسم الثلاثي', 'القسم', 'الصف', 'المادة', 'الحصص'], ...rows].map(r => r.map(q).join(',')).join('\r\n');
+  const csv = '\uFEFF' + [['المعرف', 'اسم الشهرة', 'الاسم الثلاثي', 'القسم', 'الصف', 'المادة', 'الحصص'], ...rows].map(r => r.map(q).join(',')).join('\r\n');
   const a = el('a', { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })), download: 'ميزانية_المنصة_' + new Date().toISOString().slice(0, 10) + '.csv' });
   document.body.append(a); a.click(); a.remove();
-  const blank = rows.filter(r => !r[4]).length;
-  $('schoolMsg').textContent = rows.length + ' سطراً، ' + new Set(rows.map(r => r[0])).size + ' معلماً' + (blank ? ' — ' + blank + ' بلا مادة' : '');
+  const blank = rows.filter(r => !r[5]).length;
+  $('schoolMsg').textContent = rows.length + ' سطراً، ' + new Set(rows.map(r => r[2])).size + ' معلماً' + (blank ? ' — ' + blank + ' بلا مادة' : '');
 };
 
 // ---- Admin: the whole school on one page ----
@@ -586,12 +592,13 @@ function showDetail(rows) {
 // The department's budget in the layout of the paper form: teacher × classes, then نصاب and notes.
 function deptTable(r) {
   const d = r.b.data, dup = dupes(d.teachers), multi = deptSubjects(r.dp, d.teachers).length > 0;
+  const shown = CLASSES.filter(c => !HIDDEN.includes(c) || d.teachers.some(t => c in t.cells));
   const th = (t, props) => el('th', Object.assign({ textContent: t }, props || {}));
-  const head1 = el('tr', {}, th('م', { rowSpan: 2 }), th('المعلم', { rowSpan: 2 }), ...(multi ? [th('المادة', { rowSpan: 2 })] : []), ...GRADES.map(g => th(g.label, { colSpan: g.classes.length })), th('النصاب', { rowSpan: 2 }), th('ملاحظات', { rowSpan: 2 }));
-  const head2 = el('tr', {}, ...CLASSES.map(c => th(clsShort(c))));
+  const head1 = el('tr', {}, th('م', { rowSpan: 2 }), th('المعلم', { rowSpan: 2 }), ...(multi ? [th('المادة', { rowSpan: 2 })] : []), ...GRADES.map(g => { const n = g.classes.filter(c => shown.includes(c)).length; return n ? th(g.label, { colSpan: n }) : null; }), th('النصاب', { rowSpan: 2 }), th('ملاحظات', { rowSpan: 2 }));
+  const head2 = el('tr', {}, ...shown.map(c => th(clsShort(c))));
   const body = d.teachers.map((t, i) => el('tr', {}, el('td', { textContent: i + 1 }), el('td', { className: 'n', textContent: t.name }),
     ...(multi ? [el('td', { className: 'n', textContent: (t.subjects || []).join(' / ') })] : []),
-    ...CLASSES.map(c => { const sj = c in t.cells && (t.subjects || []).length > 1 ? subjOf(t, c) : '';
+    ...shown.map(c => { const sj = c in t.cells && (t.subjects || []).length > 1 ? subjOf(t, c) : '';
       return el('td', { className: c in t.cells ? (dup.has(c) ? 'dup' : 'on') : '', title: sj }, c in t.cells ? String(t.cells[c]) : '', sj ? el('div', { className: 'sj', textContent: sj.replace(/^ال/, '') }) : null); }),
     el('td', { textContent: nisab(t) }), el('td', { className: 'n', textContent: t.note || '' })));
   const per = GRADES.map(g => g.short + ': ' + (d.periods[g.track] ?? '—')).join(' · ');

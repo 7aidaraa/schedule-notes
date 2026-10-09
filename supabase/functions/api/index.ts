@@ -77,6 +77,37 @@ async function canEditBudget(role: string, name: string, department: string) {
   return !!data?.is_head;
 }
 
+// CSV feeds the timetable sheet pulls with IMPORTDATA: ?feed=<token>&what=budgets|teachers.
+// Class and subject names are spelled as that sheet spells them.
+const SHEET_SUBJECT: Record<string, string> = { "تاريخ الكويت": "الاجتماعيات", "اختيار حر": "اللغة الفرنسية (اختيار حرّ)" };
+const MULTI = new Set(["الاجتماعيات", "الفيزياء والكيمياء", "الأحياء والجيولوجيا", "الرياضيات", "اللغة الفرنسية"]);
+const sheetClass = (c: string) => { const [g, n] = c.split("-"); return g === "10" ? "10/" + n : g.slice(0, 2) + (g.endsWith("a") ? "د" : "ع") + n; };
+const csvOf = (rows: unknown[][]) => "\uFEFF" + rows.map((r) => r.map((v) => '"' + String(v ?? "").replace(/"/g, '""') + '"').join(",")).join("\r\n");
+async function feed(what: string) {
+  const { data: staff } = await db.from("teachers").select("name,department,is_head,nick,uid").order("department").order("name");
+  const teachers = staff ?? [];
+  if (what === "teachers") {
+    return csvOf([["المعرف", "اسم الشهرة", "الاسم الثلاثي", "القسم", "رئيس قسم"], ...teachers.map((t) => [t.uid, t.nick, t.name, t.department, t.is_head ? "نعم" : ""])]);
+  }
+  const depts = new Set(teachers.map((t) => t.department));
+  const { data: budgets } = await db.from("budgets").select("department,data").order("department");
+  const rows: unknown[][] = [["المعرف", "اسم الشهرة", "الاسم الثلاثي", "القسم", "الصف", "المادة", "الحصص"]];
+  for (const b of budgets ?? []) {
+    if (!depts.has(b.department)) continue;
+    for (const t of b.data?.teachers ?? []) {
+      const tt = teachers.find((x) => x.name === t.name) ?? {} as Record<string, string>;
+      const subjects: string[] = t.subjects ?? [];
+      for (const c of CLASSES) {
+        if (!(c in (t.cells ?? {}))) continue;
+        let sj = MULTI.has(b.department) ? (t.subj?.[c] || (subjects.length === 1 ? subjects[0] : subjects[0] || "")) : b.department;
+        sj = SHEET_SUBJECT[sj] || sj;
+        rows.push([tt.uid, tt.nick || t.name, t.name, b.department, sheetClass(c), sj, t.cells[c]]);
+      }
+    }
+  }
+  return csvOf(rows);
+}
+
 function b64ToBytes(b64: string) {
   const bin = atob(b64);
   const out = new Uint8Array(bin.length);
@@ -86,6 +117,13 @@ function b64ToBytes(b64: string) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  if (req.method === "GET") {
+    const u = new URL(req.url), token = str(u.searchParams.get("feed"), 100);
+    const { data: s } = await db.from("settings").select("value").eq("key", "feed_token").maybeSingle();
+    if (!token || !s?.value || token !== s.value) return fail("غير مصرح", 401);
+    const body = await feed(u.searchParams.get("what") === "teachers" ? "teachers" : "budgets");
+    return new Response(body, { headers: { ...CORS, "Content-Type": "text/csv; charset=utf-8", "Cache-Control": "no-store" } });
+  }
   if (req.method !== "POST") return fail("Method not allowed", 405);
 
   let body: Record<string, any>;
@@ -97,7 +135,7 @@ Deno.serve(async (req) => {
 
   if (action === "login") {
     // Department → teacher names for the form's dropdowns (only after a valid password).
-    const { data } = await db.from("teachers").select("name,department,is_head,nick").order("department").order("name");
+    const { data } = await db.from("teachers").select("name,department,is_head,nick,uid").order("department").order("name");
     return json({ role, teachers: data ?? [] });
   }
 
