@@ -124,6 +124,17 @@
     main { max-width:none; margin:0; padding:0; } .card { box-shadow:none; break-inside:avoid; border-color:#999; }
     .wrap { overflow:visible; } #schoolDetail { display:block !important; }
   }
+  /* «قيود الجدول»: a checklist, ticked items struck through like done notes. */
+  .tabs button { padding:10px 6px; }
+  .rule { display:flex; align-items:flex-start; gap:10px; width:100%; padding:10px 4px; border:0; border-bottom:1px solid var(--line); border-radius:0; background:none; color:var(--ink); font-weight:400; text-align:right; box-shadow:none; }
+  .rule:last-child { border-bottom:0; }
+  .rule:hover { box-shadow:none; background:#f6f9fb; }
+  .rule .box { flex:none; width:22px; height:22px; margin-top:3px; border:2px solid var(--sky); border-radius:7px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:14px; }
+  .rule.on .box { background:var(--ok); border-color:var(--ok); }
+  .rule.on .t { text-decoration:line-through; color:var(--mute); }
+  .rule .m { display:block; font-size:13px; color:var(--mute); }
+  .rule .lv { display:inline-block; margin-inline-start:6px; padding:0 8px; border-radius:99px; font-size:12px; background:#e8f1f7; color:var(--blue); }
+  button.warn { background:var(--gold); color:#2b1d00; }
   footer { text-align:center; color:var(--mute); font-size:13px; padding:8px 16px 28px; }
   @media (prefers-reduced-motion: reduce) { * { transition:none !important; } }
 </style>
@@ -146,7 +157,11 @@
 
 
   <section id="admin" class="hidden">
-    <div class="tabs"><button id="tabReq" class="ghost on">الطلبات</button><button id="tabBook" class="ghost">أرقام المعلمين</button><button id="tabAdd" class="ghost">إضافة طلب</button><button id="tabSchool" class="ghost">ميزانية المدرسة</button></div>
+    <div class="tabs"><button id="tabReq" class="ghost on">الطلبات</button><button id="tabBook" class="ghost">أرقام المعلمين</button><button id="tabAdd" class="ghost">إضافة طلب</button><button id="tabSchool" class="ghost">ميزانية المدرسة</button><button id="tabRules" class="ghost">قيود الجدول</button></div>
+    <div id="rules" class="hidden">
+      <div class="row" style="margin:0 0 12px"><button id="rulesRefresh" class="ghost">تحديث</button><button id="rulesReset" class="ghost">رفع الشطب عن الكل</button><span id="rulesMsg" class="meta"></span></div>
+      <div id="rulesList"></div>
+    </div>
     <div id="school" class="hidden">
       <div class="row noprint" style="margin:0 0 12px"><button id="schoolRefresh" class="ghost">تحديث</button><button id="schoolPrint" class="ghost">طباعة</button><button id="schoolToggle" class="ghost">عرض التفاصيل</button><button id="schoolCsv" class="ghost">تصدير CSV للجدول</button><span id="schoolMsg" class="meta"></span></div>
       <div id="schoolSummary" class="card"></div>

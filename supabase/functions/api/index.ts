@@ -231,8 +231,34 @@ Deno.serve(async (req) => {
     return error ? fail("تعذر التحديث", 500) : json({ ok: true });
   }
   if (action === "note") {
-    const { error } = await db.from("requests").update({ note: str(body.note, 3000) }).eq("id", id);
-    return error ? fail("تعذر الحفظ", 500) : json({ ok: true });
+    // The admin's note is the request's constraint: saving it files it under «قيود الجدول» and marks the request done.
+    const note = str(body.note, 3000);
+    const { data: r } = await db.from("requests").select("name,department").eq("id", id).maybeSingle();
+    if (!r) return fail("الطلب غير موجود", 404);
+    const { error } = await db.from("requests").update(note ? { note, done: true } : { note }).eq("id", id);
+    if (error) return fail("تعذر الحفظ", 500);
+    const { data: old } = await db.from("constraints").select("id,text").eq("request_id", id).maybeSingle();
+    let e2;
+    if (!note) ({ error: e2 } = await db.from("constraints").delete().eq("request_id", id));
+    else if (old) {
+      // Edited text needs checking again.
+      if (old.text !== note) ({ error: e2 } = await db.from("constraints").update({ text: note, checked: false }).eq("id", old.id));
+    } else {
+      ({ error: e2 } = await db.from("constraints").insert({ section: "من الطلبات", department: r.department, teacher: r.name, text: note, request_id: id }));
+    }
+    return e2 ? fail("حُفظ في الطلب وتعذر نقله إلى القيود", 500) : json({ ok: true, done: !!note });
+  }
+  if (action === "rules") {
+    const { data, error } = await db.from("constraints").select("id,section,department,teacher,text,level,checked,request_id").order("pos").order("id");
+    return error ? fail("تعذر جلب القيود", 500) : json({ rows: data });
+  }
+  if (action === "rule_check") {
+    const { error } = await db.from("constraints").update({ checked: !!body.checked }).eq("id", Number(body.id));
+    return error ? fail("تعذر التحديث", 500) : json({ ok: true });
+  }
+  if (action === "rules_reset") {
+    const { error } = await db.from("constraints").update({ checked: false }).eq("checked", true);
+    return error ? fail("تعذر رفع الشطب", 500) : json({ ok: true });
   }
   if (action === "delete") {
     // Removes the request and its attached files; the phone book keeps the sender's number.

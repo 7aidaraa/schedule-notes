@@ -210,14 +210,19 @@ function card(r) {
   if (files.length) c.append(el('div', { className: 'field' }, el('b', { textContent: 'ميزانية القسم' + (files.length > 1 ? ' (' + files.length + ' ملفات)' : '') + ':' })),
     ...files.map((f, n) => fileRow(r, f, n)));
 
-  const note = el('textarea', { value: r.draft ?? r.note, placeholder: 'ملاحظاتي على هذا الطلب' });
+  // The admin's constraint for this request: saving it lists it under «قيود الجدول» and marks the request done.
+  const note = el('textarea', { value: r.draft ?? r.note, placeholder: 'اكتب القيد كما سيُطبَّق في الجدول' });
   note.oninput = () => { r.draft = note.value; };
   const nmsg = el('span', { className: 'meta' });
-  const saveBtn = el('button', { className: 'ghost', textContent: 'حفظ الملاحظة' });
+  const saveBtn = el('button', { className: 'ghost', textContent: 'حفظ القيد' });
   saveBtn.onclick = async () => {
     saveBtn.disabled = true;
-    try { await call('note', { id: r.id, note: note.value }); r.note = note.value; r.draft = undefined; nmsg.textContent = 'حُفظت ✓'; }
-    catch (e) { nmsg.textContent = e; }
+    try {
+      const o = await call('note', { id: r.id, note: note.value.trim() });
+      r.note = note.value.trim(); r.draft = undefined; RULES = null;
+      if (o.done) r.done = true;
+      render(); return;
+    } catch (e) { nmsg.textContent = e; }
     saveBtn.disabled = false;
   };
   const doneBtn = el('button', { className: r.done ? 'ghost' : 'ok', textContent: r.done ? 'إلغاء الإنجاز' : 'تم ✓' });
@@ -226,7 +231,7 @@ function card(r) {
     try { await call('done', { id: r.id, done: !r.done }); r.done = !r.done; render(); }
     catch (e) { nmsg.textContent = e; doneBtn.disabled = false; }
   };
-  c.append(el('label', { textContent: 'ملاحظاتي' }), note, el('div', { className: 'row' }, saveBtn, doneBtn, nmsg));
+  c.append(el('label', { textContent: 'القيد' + (r.note ? ' ✓ في قيود الجدول' : '') }), note, el('div', { className: 'row' }, saveBtn, doneBtn, nmsg));
   return c;
 }
 
@@ -269,9 +274,11 @@ function waBtn(phone, name, request) {
 
 // ---- Phone book: last number each sender used, kept even after requests are deleted ----
 function tab(which) {
-  ['req', 'book', 'add', 'school'].forEach(k => $('tab' + k[0].toUpperCase() + k.slice(1)).classList.toggle('on', which === k));
+  ['req', 'book', 'add', 'school', 'rules'].forEach(k => $('tab' + k[0].toUpperCase() + k.slice(1)).classList.toggle('on', which === k));
   $('reqView').classList.toggle('hidden', which !== 'req'); $('book').classList.toggle('hidden', which !== 'book'); $('school').classList.toggle('hidden', which !== 'school');
+  $('rules').classList.toggle('hidden', which !== 'rules');
   if (which === 'school') loadSchool();
+  if (which === 'rules') loadRules();
   $('teacher').classList.toggle('hidden', which !== 'add');
   if (which === 'book') loadBook();
   if (which === 'req') loadList();
@@ -280,6 +287,55 @@ function tab(which) {
 $('tabReq').onclick = () => tab('req');
 $('tabBook').onclick = () => tab('book');
 $('tabAdd').onclick = () => tab('add');
+$('tabRules').onclick = () => tab('rules');
+
+// ---- «قيود الجدول»: tick each constraint after checking the exported timetable; clear all for the next round ----
+let RULES = null;
+const SECTIONS = ['الآلي العام', 'الآلي الفردي', 'اليدوي العام', 'اليدوي الفردي', 'مسودة', 'من الطلبات'];
+async function loadRules() {
+  $('rulesMsg').textContent = 'جارٍ التحميل...';
+  try { RULES = (await call('rules')).rows; renderRules(); }
+  catch (e) { $('rulesMsg').textContent = e; }
+}
+$('rulesRefresh').onclick = loadRules;
+function ruleItem(x) {
+  const b = el('button', { type: 'button', className: 'rule' + (x.checked ? ' on' : '') },
+    el('span', { className: 'box', textContent: x.checked ? '✓' : '' }),
+    el('span', {}, el('span', { className: 't', textContent: x.text }),
+      el('span', { className: 'm' }, [x.department, x.teacher].filter(Boolean).join(' · '), x.level ? el('span', { className: 'lv', textContent: x.level }) : null)));
+  b.onclick = async () => {
+    x.checked = !x.checked; renderRules();
+    try { await call('rule_check', { id: x.id, checked: x.checked }); }
+    catch (e) { x.checked = !x.checked; renderRules(); $('rulesMsg').textContent = e; }
+  };
+  return b;
+}
+function renderRules() {
+  const rows = RULES || [];
+  const done = rows.filter(x => x.checked).length;
+  $('rulesMsg').textContent = rows.length ? 'مستوفى ' + done + ' من ' + rows.length + (done === rows.length ? ' — اكتملت ✓' : '') : '';
+  const secs = [...SECTIONS, ...new Set(rows.map(x => x.section).filter(s => !SECTIONS.includes(s)))];
+  $('rulesList').replaceChildren(...(rows.length ? secs.map(s => {
+    const list = rows.filter(x => x.section === s);
+    if (!list.length) return null;
+    const n = list.filter(x => x.checked).length;
+    return el('div', { className: 'card' }, el('h2', { textContent: s + ' (' + n + '/' + list.length + ')' }), ...list.map(ruleItem));
+  }).filter(Boolean) : [el('div', { className: 'card meta', textContent: 'لا توجد قيود بعد' })]));
+}
+// Two taps (no confirm(): in-app browsers block it).
+let resetArmed = 0;
+$('rulesReset').onclick = async () => {
+  const b = $('rulesReset');
+  if (Date.now() - resetArmed > 4000) {
+    resetArmed = Date.now(); b.textContent = 'اضغط مرة أخرى للتأكيد'; b.className = 'warn';
+    setTimeout(() => { if (Date.now() - resetArmed >= 4000) { b.textContent = 'رفع الشطب عن الكل'; b.className = 'ghost'; } }, 4100);
+    return;
+  }
+  resetArmed = 0; b.disabled = true;
+  try { await call('rules_reset'); (RULES || []).forEach(x => { x.checked = false; }); renderRules(); }
+  catch (e) { $('rulesMsg').textContent = e; }
+  b.disabled = false; b.textContent = 'رفع الشطب عن الكل'; b.className = 'ghost';
+};
 async function loadBook() {
   $('bookList').replaceChildren(el('div', { className: 'meta', textContent: 'جارٍ التحميل...' }));
   try {
