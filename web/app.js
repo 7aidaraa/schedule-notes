@@ -529,6 +529,15 @@ function showBudgetState() {
 // Subject names as the sheet's «التوزيع» columns spell them; single-subject departments use the department name.
 const SHEET_SUBJECT = { 'تاريخ الكويت': 'الاجتماعيات', 'اختيار حر': 'اللغة الفرنسية (اختيار حرّ)' };
 const sheetClass = c => { const [g, n] = c.split('-'); return g === '10' ? '10/' + n : g.slice(0, 2) + (g.endsWith('a') ? 'د' : 'ع') + n; };
+// Teachers' schedule notes (request + reason) travel in the same file as «قيد» rows; the sheet keeps them
+// in «القيود بلغة عرفية» under a heading of their own so the owner can filter them.
+const HEADERS = ['المعرف', 'اسم الشهرة', 'الاسم الثلاثي', 'القسم', 'الصف', 'المادة', 'الحصص', 'السجل', 'القيد', 'السبب', 'الحالة', 'التاريخ', 'معرف الطلب'];
+function noteRows() {
+  return ROWS.map(r => {
+    const tt = TEACHERS.find(x => x.name === r.name) || {};
+    return [tt.uid || '', tt.nick || r.name, r.name, tt.department || r.department, '', '', '', 'قيد', r.request, r.reason, r.done ? 'تم' : 'جديد', new Date(r.created_at).toISOString().slice(0, 10), r.id];
+  });
+}
 function exportRows() {
   const rows = [];
   for (const b of SCHOOL) {
@@ -537,21 +546,22 @@ function exportRows() {
       const tt = TEACHERS.find(x => x.name === t.name) || {};
       for (const c of CLASSES) {
         if (!(c in t.cells)) continue;
-        rows.push([tt.uid || '', tt.nick || t.name, t.name, b.department, sheetClass(c), sheetSubjectOf(b.department, t, c), t.cells[c]]);
+        rows.push([tt.uid || '', tt.nick || t.name, t.name, b.department, sheetClass(c), sheetSubjectOf(b.department, t, c), t.cells[c], 'توزيع', '', '', '', '', '']);
       }
     }
   }
   return rows;
 }
-$('schoolCsv').onclick = () => {
-  const rows = exportRows();
+$('schoolCsv').onclick = async () => {
+  if (!ROWS.length) { try { ROWS = (await call('list')).rows; } catch (e) { $('schoolMsg').textContent = e; return; } }
+  const dist = exportRows(), notes = noteRows(), rows = [...dist, ...notes];
   if (!rows.length) { $('schoolMsg').textContent = 'لا توجد ميزانيات للتصدير'; return; }
-  const q = v => '"' + String(v).replace(/"/g, '""') + '"';
-  const csv = '\uFEFF' + [['المعرف', 'اسم الشهرة', 'الاسم الثلاثي', 'القسم', 'الصف', 'المادة', 'الحصص'], ...rows].map(r => r.map(q).join(',')).join('\r\n');
+  const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+  const csv = '\uFEFF' + [HEADERS, ...rows].map(r => r.map(q).join(',')).join('\r\n');
   const a = el('a', { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })), download: 'ميزانية_المنصة_' + new Date().toISOString().slice(0, 10) + '.csv' });
   document.body.append(a); a.click(); a.remove();
-  const blank = rows.filter(r => !r[5]).length;
-  $('schoolMsg').textContent = rows.length + ' سطراً، ' + new Set(rows.map(r => r[2])).size + ' معلماً' + (blank ? ' — ' + blank + ' بلا مادة' : '');
+  const blank = dist.filter(r => !r[5]).length;
+  $('schoolMsg').textContent = dist.length + ' سطر توزيع لـ' + new Set(dist.map(r => r[2])).size + ' معلماً، و' + notes.length + ' ملاحظة' + (blank ? ' — ' + blank + ' بلا مادة' : '');
 };
 
 // ---- Admin: the whole school on one page ----
