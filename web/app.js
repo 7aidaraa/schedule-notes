@@ -418,7 +418,12 @@ function teacherCard(t, i, dup) {
   const box = el('div', { className: 'card' });
   const tag = el('span', { className: 'nisab', textContent: 'النصاب: ' + nisab(t) });
   const remove = el('button', { className: 'del', type: 'button', textContent: '🗑️', title: 'حذف المعلم من الميزانية' });
-  remove.onclick = () => { if (confirm('حذف «' + t.name + '» من ميزانية القسم؟')) { BUDGET.data.teachers.splice(i, 1); changed(); renderTeachers(); } };
+  remove.onclick = () => {
+    // Second tap confirms; the button reverts after a few seconds.
+    if (remove.dataset.arm) { BUDGET.data.teachers.splice(i, 1); changed(); renderTeachers(); return; }
+    remove.dataset.arm = '1'; remove.textContent = 'تأكيد حذف ' + t.name.split(' ')[0] + '؟'; remove.style.fontSize = '13px';
+    setTimeout(() => { delete remove.dataset.arm; remove.textContent = '🗑️'; remove.style.fontSize = ''; }, 4000);
+  };
   const nameEl = t.added ? el('input', { value: t.name, placeholder: 'اسم المعلم', maxLength: 120 }) : el('strong', { textContent: (i + 1) + '. ' + t.name });
   if (t.added) nameEl.oninput = () => { t.name = nameEl.value.trim(); changed(); };
   box.append(el('div', { className: 'row', style: 'margin-top:0;justify-content:space-between' }, nameEl, el('div', { className: 'row', style: 'margin-top:0' }, tag, remove)));
@@ -434,7 +439,13 @@ function teacherCard(t, i, dup) {
       row.append(b);
     });
     const add = el('button', { className: 'sub', type: 'button', textContent: '+ مادة' });
-    add.onclick = () => { const v = (prompt('اسم المادة') || '').trim().slice(0, 40); if (v && !t.subjects.includes(v)) { t.subjects.push(v); changed(); renderTeachers(); } };
+    add.onclick = () => {
+      const inp = el('input', { placeholder: 'اسم المادة', maxLength: 40, style: 'width:140px;padding:4px 8px;font-size:13px' });
+      const ok = el('button', { className: 'sub', type: 'button', textContent: 'إضافة' });
+      ok.onclick = () => { const v = inp.value.trim(); if (v && !t.subjects.includes(v)) { t.subjects.push(v); changed(); } renderTeachers(); };
+      inp.onkeydown = e => { if (e.key === 'Enter') ok.click(); };
+      add.replaceWith(inp, ok); inp.focus();
+    };
     row.append(add);
     box.append(row);
   }
