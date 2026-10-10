@@ -78,4 +78,5 @@
 | `app.js` | من «Department budget» (`GRADES` … `teacherCard`، `openBudget`/`closeBudget`/`saveBudget`) و`budgetForHeads`/`showRole`، و«Export for the timetable sheet» (`exportRows`)، و«ميزانية كل الأقسام» (`splitOf`، `partsOf`، `setParts`، `renderGrid`، `setCell`)، و«Admin: the whole school» (`loadSchool`، `loadBudgetFiles`، `renderSchool`، `showDetail`، `showPreview`، `deptTable`). باقي الملف (الطلبات، والقيود، والهواتف) ليس من المهارة. |
 | `form.js` | النموذج الرسمي كله |
 | `table.js` | المحرر الجدولي كله |
+| `firebase/adapter.js` | بديل `call()` على Firestore، ويكتب عقد `budget_rows` مع كل حفظ |
 | `index.html` | `#budget` (بطاقة الرئيس)، و`#school` (التبويب، وفيه `#grid` و`#bedit` و`#schoolFiles`)، وأنماط `.cgrid` و`.bedT` و`.grid` و`.fp*` |

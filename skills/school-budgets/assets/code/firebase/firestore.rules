@@ -1,0 +1,23 @@
+rules_version = '2';
+// Budgets section rules. Merge into the host platform's rules; field names must match FB.fields in adapter.js
+// (users/{uid}: role, isHead, department).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function me() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function signedIn() { return request.auth != null; }
+    function isAdmin() { return signedIn() && me().role == 'admin'; }
+    function headOf(dept) { return signedIn() && me().isHead == true && me().department == dept; }
+
+    // One document per department; a head writes only their own department.
+    match /budgets/{dept} {
+      allow read: if signedIn();
+      allow write: if isAdmin() || headOf(dept);
+    }
+    // The shared contract: one row per teacher × class × subject, rewritten with every save.
+    match /budget_rows/{id} {
+      allow read: if signedIn();
+      allow create, update: if isAdmin() || headOf(request.resource.data.department);
+      allow delete: if isAdmin() || headOf(resource.data.department);
+    }
+  }
+}
