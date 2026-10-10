@@ -667,7 +667,8 @@ function exportRows() {
       const tt = TEACHERS.find(x => x.name === t.name) || {};
       for (const c of CLASSES) {
         if (!(c in t.cells)) continue;
-        rows.push([tt.uid || '', tt.nick || t.name, t.name, b.department, sheetClass(c), sheetSubjectOf(b.department, t, c), t.cells[c], 'توزيع', '', '', '', '', '']);
+        for (const p of partsOf(b.department, t, c))
+          rows.push([tt.uid || '', tt.nick || t.name, t.name, b.department, sheetClass(c), p.col, p.h, 'توزيع', '', '', '', '', '']);
       }
     }
   }
@@ -685,6 +686,100 @@ $('schoolCsv').onclick = async () => {
   $('schoolMsg').textContent = dist.length + ' سطر توزيع لـ' + new Set(dist.map(r => r[2])).size + ' معلماً، و' + notes.length + ' ملاحظة' + (blank ? ' — ' + blank + ' بلا مادة' : '');
 };
 
+// ---- «ميزانية كل الأقسام»: the budgets as the sheet's «التوزيع» — class × subject, one teacher per cell ----
+// Columns in the sheet's order. dept = the platform department; subj = the subject name inside a multi-subject department.
+const GRID_COLS = [
+  ['التربية الإسلامية'], ['اللغة العربية'], ['اللغة الإنجليزية'], ['اللغة الفرنسية', 'اللغة الفرنسية', 'اللغة الفرنسية'],
+  ['الرياضيات', 'الرياضيات', 'الرياضيات'], ['الكيمياء', 'الفيزياء والكيمياء', 'الكيمياء'], ['الفيزياء', 'الفيزياء والكيمياء', 'الفيزياء'],
+  ['الأحياء', 'الأحياء والجيولوجيا', 'الأحياء'], ['الجيولوجيا', 'الأحياء والجيولوجيا', 'الجيولوجيا'],
+  ['التاريخ', 'الاجتماعيات', 'التاريخ'], ['الجغرافيا', 'الاجتماعيات', 'الجغرافيا'], ['الاجتماعيات', 'الاجتماعيات', 'تاريخ الكويت'],
+  ['الفلسفة', 'الاجتماعيات', 'الفلسفة'], ['علم النفس', 'الاجتماعيات', 'علم النفس'], ['الدستور', 'الاجتماعيات', 'الدستور'],
+  ['الحاسوب'], ['التربية البدنية'], ['التربية الموسيقية'], ['التربية الفنية'], ['التجاري', null], ['المكتبات'], ['الدراسات العملية'],
+  ['التربية البيئية', 'الأحياء والجيولوجيا', 'التربية البيئية'], ['الإحصاء', 'الرياضيات', 'الإحصاء'], ['اللغة الفرنسية (اختيار حرّ)', 'اللغة الفرنسية', 'اختيار حر'],
+].map(([col, dept = col, subj = null]) => ({ col, dept, subj }));
+const isMulti = dp => (SUBJECTS[dp] || []).length > 0;
+// A split is trusted only while it adds up to the cell (the department editor may have changed the hours since).
+function splitOf(t, c) {
+  const p = (t.split || {})[c];
+  if (!p || Object.keys(p).length < 2 || Object.values(p).reduce((a, v) => a + v, 0) !== t.cells[c]) return null;
+  return p;
+}
+// The subjects one teacher gives one class: [{ subj, col, h }] (col = the sheet's column name).
+function partsOf(dp, t, c) {
+  const p = splitOf(t, c);
+  if (p) return Object.entries(p).map(([subj, h]) => ({ subj, col: SHEET_SUBJECT[subj] || subj, h }));
+  const subj = isMulti(dp) ? (subjOf(t, c) || (t.subjects || [])[0] || '') : null;
+  return [{ subj, col: subj ? SHEET_SUBJECT[subj] || subj : dp, h: t.cells[c] }];
+}
+function setParts(t, c, parts) {
+  t.subj = t.subj || {}; t.split = t.split || {};
+  delete t.split[c];
+  if (!parts.length) { delete t.cells[c]; delete t.subj[c]; return; }
+  t.cells[c] = parts.reduce((a, p) => a + p.h, 0);
+  if (parts[0].subj) t.subj[c] = parts[0].subj; else delete t.subj[c];
+  if (parts.length > 1) t.split[c] = Object.fromEntries(parts.map(p => [p.subj, p.h]));
+}
+let GRID_OPEN = false, GRID_BUSY = Promise.resolve();
+$('gridOpen').onclick = () => { GRID_OPEN = true; $('schoolMain').classList.add('hidden'); $('grid').classList.remove('hidden'); renderGrid(); window.scrollTo(0, 0); };
+$('gridBack').onclick = () => { GRID_OPEN = false; $('grid').classList.add('hidden'); $('schoolMain').classList.remove('hidden'); renderSchool(); };
+$('gridRefresh').onclick = loadSchool;
+const gridDepts = () => new Set(TEACHERS.map(t => t.department));
+function renderGrid() {
+  const depts = gridDepts();
+  // who[col][class] = [{ name, h }]
+  const who = {};
+  for (const b of SCHOOL) {
+    if (!depts.has(b.department)) continue;
+    for (const t of b.data.teachers) for (const c of CLASSES) {
+      if (!(c in (t.cells || {}))) continue;
+      for (const p of partsOf(b.department, t, c)) ((who[p.col] = who[p.col] || {})[c] = who[p.col][c] || []).push({ name: t.name, h: p.h });
+    }
+  }
+  const rows = CLASSES.filter(c => !HIDDEN.includes(c) || GRID_COLS.some(k => (who[k.col] || {})[c]));
+  const nick = n => (TEACHERS.find(t => t.name === n) || {}).nick || n;
+  const head = el('tr', {}, el('th', { className: 'stick', textContent: 'اسم الصف' }), ...GRID_COLS.map(k => el('th', { textContent: k.col })));
+  const body = rows.map(c => el('tr', {}, el('th', { className: 'stick', textContent: sheetClass(c) }), ...GRID_COLS.map(k => {
+    const off = (OFFICIAL[k.col] || {})[c], cur = (who[k.col] || {})[c] || [];
+    if (!off && !cur.length) return el('td', { className: 'off' });
+    if (!k.dept || !depts.has(k.dept)) return el('td', { className: 'ro', textContent: cur.map(x => nick(x.name)).join('، ') });
+    const staff = TEACHERS.filter(t => t.department === k.dept).map(t => t.name);
+    cur.forEach(x => { if (!staff.includes(x.name)) staff.push(x.name); });
+    const sel = el('select', {}, el('option', { value: '', textContent: '—' }), ...staff.map(n => el('option', { value: n, textContent: nick(n) })));
+    sel.value = cur.length ? cur[0].name : '';
+    const bad = cur.some(x => off && x.h !== off);
+    sel.onchange = () => setCell(k, c, sel.value);
+    return el('td', { className: (cur.length > 1 ? 'dup' : '') + (bad ? ' odd' : ''), title: cur.map(x => x.name + ' (' + x.h + ')').join('\n') }, sel, cur.length > 1 ? el('small', { textContent: '+' + (cur.length - 1) }) : null);
+  })));
+  $('gridTable').replaceChildren(el('thead', {}, head), el('tbody', {}, ...body));
+}
+// One cell changed: the subject leaves whoever had it in that class and goes to the chosen teacher, in the department's own budget.
+function setCell(k, c, name) {
+  GRID_BUSY = GRID_BUSY.then(async () => {
+    $('gridMsg').textContent = 'جارٍ الحفظ...';
+    try {
+      let b = SCHOOL.find(x => x.department === k.dept);
+      if (!b) { const o = await call('budget_get', { department: k.dept, name: 'المدير' }); b = o.budget; SCHOOL.push(b); }
+      const d = b.data;
+      d.teachers.forEach(t => { t.cells = t.cells || {}; });
+      for (const t of d.teachers) if (c in t.cells) {
+        const parts = partsOf(k.dept, t, c), keep = parts.filter(p => p.col !== k.col);
+        if (keep.length !== parts.length) setParts(t, c, keep);
+      }
+      if (name) {
+        let t = d.teachers.find(x => x.name === name);
+        if (!t) { t = { name, cells: {}, note: '', subjects: [], subj: {} }; d.teachers.push(t); }
+        if (k.subj) { t.subjects = t.subjects || []; if (!t.subjects.includes(k.subj)) t.subjects.push(k.subj); }
+        const h = (OFFICIAL[k.col] || {})[c] ?? d.periods[trackOf(c)] ?? 0;
+        setParts(t, c, [...(c in t.cells ? partsOf(k.dept, t, c) : []), { subj: k.subj, col: k.col, h }]);
+      }
+      const o = await call('budget_save', { department: k.dept, name: 'المدير', data: d });
+      b.updated_at = o.updated_at; b.updated_by = o.updated_by;
+      $('gridMsg').textContent = 'حُفظ ✓ في ميزانية ' + k.dept;
+    } catch (e) { $('gridMsg').textContent = 'لم يُحفظ: ' + e; await loadSchool(); }
+    renderGrid();
+  });
+}
+
 // ---- Admin: the whole school on one page ----
 let SCHOOL = [];
 $('tabSchool').onclick = () => tab('school');
@@ -693,7 +788,7 @@ $('schoolPrint').onclick = () => { $('schoolDetail').classList.remove('hidden');
 $('schoolToggle').onclick = () => { if ($('schoolDetail').classList.contains('hidden')) showDetail(SCHOOL_ROWS); else { $('schoolDetail').classList.add('hidden'); $('schoolToggle').textContent = 'عرض التفاصيل'; } };
 async function loadSchool() {
   $('schoolMsg').textContent = 'جارٍ التحميل...';
-  try { SCHOOL = (await call('budgets')).rows; renderSchool(); $('schoolMsg').textContent = ''; }
+  try { SCHOOL = (await call('budgets')).rows; renderSchool(); if (GRID_OPEN) renderGrid(); $('schoolMsg').textContent = ''; }
   catch (e) { $('schoolMsg').textContent = e; }
 }
 function renderSchool() {

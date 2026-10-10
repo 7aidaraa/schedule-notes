@@ -66,7 +66,15 @@ function cleanBudget(d: Record<string, any>) {
     const subjects = [...new Set((Array.isArray(t?.subjects) ? t.subjects : []).map((x: unknown) => str(x, 40)).filter(Boolean))].slice(0, 8);
     const subj: Record<string, string> = {};
     for (const c of CLASSES) { const x = str(t?.subj?.[c], 40); if (x && c in cells) subj[c] = x; }
-    return { name: str(t?.name, 120), cells, note: str(t?.note, 300), subjects, subj };
+    // A class taught in two subjects by the same teacher: hours per subject, kept only when they add up to the cell.
+    const split: Record<string, Record<string, number>> = {};
+    for (const c of CLASSES) {
+      const parts: Record<string, number> = {};
+      for (const [k, v] of Object.entries(t?.split?.[c] ?? {})) { const n = int(v, 40); if (str(k, 40) && n) parts[str(k, 40)] = n; }
+      const keys = Object.keys(parts);
+      if (keys.length > 1 && c in cells && keys.reduce((a, k) => a + parts[k], 0) === cells[c]) split[c] = parts;
+    }
+    return { name: str(t?.name, 120), cells, note: str(t?.note, 300), subjects, subj, split };
   }).filter((t: any) => t.name);
   return { periods, required: int(d?.required, 99), note: str(d?.note, 1000), teachers };
 }
@@ -99,6 +107,11 @@ async function feed(what: string) {
       const subjects: string[] = t.subjects ?? [];
       for (const c of CLASSES) {
         if (!(c in (t.cells ?? {}))) continue;
+        const parts = t.split?.[c];
+        if (parts && Object.keys(parts).length > 1) {
+          for (const [k, v] of Object.entries(parts)) rows.push([tt.uid, tt.nick || t.name, t.name, b.department, sheetClass(c), SHEET_SUBJECT[k] || k, v]);
+          continue;
+        }
         let sj = MULTI.has(b.department) ? (t.subj?.[c] || (subjects.length === 1 ? subjects[0] : subjects[0] || "")) : b.department;
         sj = SHEET_SUBJECT[sj] || sj;
         rows.push([tt.uid, tt.nick || t.name, t.name, b.department, sheetClass(c), sj, t.cells[c]]);

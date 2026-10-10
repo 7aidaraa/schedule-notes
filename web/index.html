@@ -147,6 +147,20 @@
   @media (max-width:520px) { .ruleFields { grid-template-columns:1fr; } }
   .addRule { width:100%; margin-top:10px; border-style:dashed; }
   button.warn { background:var(--gold); color:#2b1d00; }
+  /* «ميزانية كل الأقسام»: class names stay put while scrolling sideways, subject names while scrolling down. */
+  button.gridBtn { display:block; width:100%; margin:0 0 12px; padding:14px; font-size:18px; background:linear-gradient(135deg, #b9832a, var(--gold)); color:#2b1d00; }
+  .gridWrap { overflow:auto; max-height:75vh; border:1px solid var(--line); border-radius:10px; }
+  table.grid { border-collapse:separate; border-spacing:0; font-size:12px; }
+  table.grid th, table.grid td { border-bottom:1px solid var(--line); border-left:1px solid var(--line); padding:2px 3px; white-space:nowrap; text-align:center; background:#fff; }
+  table.grid thead th { position:sticky; top:0; z-index:2; background:#eef3f7; font-size:11px; padding:6px 4px; }
+  table.grid .stick { position:sticky; right:0; z-index:1; background:#eef3f7; font-weight:700; min-width:48px; }
+  table.grid thead .stick { z-index:3; }
+  table.grid td.off { background:#e4e8ec; }
+  table.grid td.ro { color:var(--mute); }
+  table.grid td.dup { background:var(--new); }
+  table.grid td.odd select { border-color:var(--err); color:var(--err); font-weight:700; }
+  table.grid select { width:112px; padding:4px 2px; border:1px solid var(--line); border-radius:6px; font:inherit; font-size:12px; background:#fbfdfe; }
+  table.grid td small { display:block; font-size:10px; color:#7a5300; font-weight:700; }
   footer { text-align:center; color:var(--mute); font-size:13px; padding:8px 16px 28px; }
   @media (prefers-reduced-motion: reduce) { * { transition:none !important; } }
 </style>
@@ -175,9 +189,20 @@
       <div id="rulesList"></div>
     </div>
     <div id="school" class="hidden">
+      <div id="schoolMain">
+      <button id="gridOpen" class="gridBtn noprint">ميزانية كل الأقسام</button>
       <div class="row noprint" style="margin:0 0 12px"><button id="schoolRefresh" class="ghost">تحديث</button><button id="schoolPrint" class="ghost">طباعة</button><button id="schoolToggle" class="ghost">عرض التفاصيل</button><button id="schoolCsv" class="ghost">تصدير CSV للجدول</button><span id="schoolMsg" class="meta"></span></div>
       <div id="schoolSummary" class="card"></div>
       <div id="schoolDetail" class="hidden"></div>
+      </div>
+      <div id="grid" class="hidden">
+        <div class="row noprint" style="margin:0 0 10px"><button id="gridBack" class="ghost">رجوع</button><button id="gridRefresh" class="ghost">تحديث</button><span id="gridMsg" class="meta"></span></div>
+        <div class="card" style="padding:10px">
+          <h2>ميزانية كل الأقسام</h2>
+          <p class="lead" style="font-size:14px">بنسق ورقة «التوزيع». اختر المعلم من القائمة فيُحفظ في ميزانية قسمه فوراً، والحصص من المقرر. الخانة الحمراء حصصها تخالف المقرر.</p>
+          <div class="gridWrap"><table id="gridTable" class="grid"></table></div>
+        </div>
+      </div>
     </div>
     <div id="book" class="hidden"><div id="bookList"></div></div>
     <div id="reqView">
