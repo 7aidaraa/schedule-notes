@@ -871,7 +871,7 @@ function renderSchool() {
       const edit = el('button', { className: 'ghost noprint', textContent: 'تعديل', style: 'padding:4px 12px' });
       edit.onclick = () => openBudget(r.dp, 'المدير', () => { $('schoolMain').classList.remove('hidden'); loadSchool(); });
       const view = el('button', { className: 'ghost noprint', textContent: 'معاينة', style: 'padding:4px 12px' });
-      view.onclick = () => showDetail([r]);
+      view.onclick = () => showPreview(r);
       return el('tr', {}, td(r.dp), td(r.head),
         td(r.b ? new Date(r.b.updated_at).toLocaleDateString('ar-KW') + ' · ' + (r.b.updated_by || '') : 'لم تُدخل بعد'), el('td', {}, el('div', { className: 'row', style: 'margin:0;flex-wrap:nowrap;justify-content:center' }, r.b ? view : null, edit)));
     })));
@@ -886,6 +886,14 @@ function showDetail(rows) {
   const all = el('button', { className: 'ghost noprint', textContent: 'عرض كل الأقسام', style: 'margin-bottom:10px' });
   all.onclick = () => showDetail(SCHOOL_ROWS);
   $('schoolDetail').replaceChildren(...(one ? [all] : []), ...rows.map(r => deptTable(r)));
+  $('schoolDetail').classList.remove('hidden'); $('schoolToggle').textContent = 'إخفاء التفاصيل';
+  $('schoolDetail').scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+}
+// «معاينة»: one department as the official Excel form (read only).
+function showPreview(r) {
+  const all = el('button', { className: 'ghost noprint', textContent: 'عرض كل الأقسام', style: 'margin-bottom:10px' });
+  all.onclick = () => showDetail(SCHOOL_ROWS);
+  $('schoolDetail').replaceChildren(all, el('div', { className: 'card fpWrap' }, el('h2', { textContent: 'ميزانية قسم ' + r.dp }), formPage(r.dp, r.b.data, true)));
   $('schoolDetail').classList.remove('hidden'); $('schoolToggle').textContent = 'إخفاء التفاصيل';
   $('schoolDetail').scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
 }

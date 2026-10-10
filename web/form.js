@@ -262,7 +262,8 @@ async function readForm(file, dp, d) {
 }
 
 // ---- PDF and image: the same form drawn as a page ----
-function formPage(dp, d) {
+// `bare`: the on-screen preview — the same table without the official header and signatures (screens carry no logo).
+function formPage(dp, d, bare) {
   const multi = isMulti(dp), classes = formClasses(d), rows = formRows(dp, d);
   const th = t => el('th', { textContent: t });
   const table = el('table', { className: 'fp-t' },
@@ -277,15 +278,16 @@ function formPage(dp, d) {
       return tr;
     }))));
   const have = rows.length, req = d.required;
+  const sum = [el('div', { className: 'fp-cap', textContent: 'ميزانية المعلمين' }),
+    el('table', { className: 'fp-t fp-sum' }, el('tr', {}, ...['العدد المطلوب', 'الموجود', 'العجز', 'ملاحظات'].map(th)),
+      el('tr', {}, el('td', { textContent: req ?? '' }), el('td', { textContent: have }), el('td', { textContent: req == null ? '' : req - have }), el('td')))];
+  if (bare) return el('div', { className: 'fp fp-bare' }, table, ...sum);
   return el('div', { className: 'fp' },
     el('div', { className: 'fp-head' },
       el('div', { className: 'fp-side' }, el('img', { src: 'assets/moe.jpeg', className: 'fp-moe' }), el('b', { textContent: 'وزارة التربية' }), el('span', { textContent: 'الإدارة العامة لمنطقة العاصمة التعليمية' }), el('span', { textContent: 'ثانوية أحمد البشر الرومي بنين' })),
       el('div', { className: 'fp-mid' }, el('div', { className: 'fp-title', textContent: 'ميزانية الأقسام العلمية للعام الدراسي ' + FORM.year }), el('div', { className: 'fp-dept', textContent: 'القسم العلمي / ' + dp })),
       el('div', { className: 'fp-side' }, el('img', { src: 'assets/school.png', className: 'fp-school' }), el('span', { textContent: 'العام الدراسي ' + FORM.year }))),
-    el('div', { className: 'fp-line' }), table,
-    el('div', { className: 'fp-cap', textContent: 'ميزانية المعلمين' }),
-    el('table', { className: 'fp-t fp-sum' }, el('tr', {}, ...['العدد المطلوب', 'الموجود', 'العجز', 'ملاحظات'].map(th)),
-      el('tr', {}, el('td', { textContent: req ?? '' }), el('td', { textContent: have }), el('td', { textContent: req == null ? '' : req - have }), el('td'))),
+    el('div', { className: 'fp-line' }), table, ...sum,
     el('div', { className: 'fp-sign' },
       el('div', {}, el('b', { textContent: 'رئيس القسم' }), el('div', { textContent: headOf(dp) }), el('div', { textContent: 'التوقيع: ....................' })),
       el('div', {}, el('b', { textContent: 'مدير المدرسة' }), el('div', { textContent: FORM.principal }), el('div', { textContent: 'التوقيع: ....................' }))));
