@@ -166,6 +166,25 @@
   table.grid td.odd select { border-color:var(--err); color:var(--err); font-weight:700; }
   table.grid select { width:112px; padding:4px 2px; border:1px solid var(--line); border-radius:6px; font:inherit; font-size:12px; background:#fbfdfe; }
   table.grid td small { display:block; font-size:10px; color:#7a5300; font-weight:700; }
+  /* النموذج الرسمي */
+  .plea { margin:8px 0; padding:8px 10px; border-radius:10px; background:#eef3f7; color:var(--ink); font-size:13px; line-height:1.7; }
+  .plea.warnPlea { background:var(--gold-soft); border:1px solid var(--gold); }
+  .review { margin-top:10px; padding:10px 12px; border-radius:12px; background:var(--gold-soft); border:1.5px solid var(--gold); }
+  .fp-rep { margin:6px 0; padding-inline-start:20px; font-size:14px; }
+  .fp-ask { margin-top:8px; padding:10px; border-radius:10px; background:var(--gold-soft); border:1px solid var(--gold); }
+  .fp-host { position:fixed; left:-10000px; top:0; }
+  .fp { width:1400px; padding:24px 28px; background:#fff; color:#000; font-family:"Plex Arabic", Tahoma, sans-serif; direction:rtl; }
+  .fp-head { display:flex; justify-content:space-between; align-items:flex-start; }
+  .fp-side { display:flex; flex-direction:column; align-items:center; gap:2px; font-size:15px; min-width:300px; }
+  .fp-moe { height:80px; } .fp-school { height:62px; margin-bottom:6px; }
+  .fp-mid { text-align:center; padding-top:26px; } .fp-title { font-size:24px; font-weight:700; } .fp-dept { font-size:19px; margin-top:6px; }
+  .fp-line { border-bottom:4px double #217346; margin:10px 0 12px; }
+  .fp-t { border-collapse:collapse; width:100%; font-size:14px; }
+  .fp-t th, .fp-t td { border:1px solid #777; padding:4px 3px; text-align:center; }
+  .fp-t th { background:#dbe9e1; } .fp-n { text-align:right !important; font-weight:700; white-space:nowrap; } .fp-s { font-weight:700; background:#eef6f1; }
+  .fp-on { background:#fff2cc; } .fp-off { background:#d9d9d9; } .fp-note { font-size:12px; text-align:right !important; }
+  .fp-cap { text-align:center; font-weight:700; font-size:16px; margin:16px 0 6px; } .fp-sum { width:70%; margin:0 auto; }
+  .fp-sign { display:flex; justify-content:space-between; margin:22px 80px 4px; text-align:center; font-size:16px; line-height:2; }
   footer { text-align:center; color:var(--mute); font-size:13px; padding:8px 16px 28px; }
   @media (prefers-reduced-motion: reduce) { * { transition:none !important; } }
 </style>
@@ -234,11 +253,13 @@
     <div id="budget" class="card hidden">
       <h2>ميزانية القسم</h2>
       <p class="lead">اضغط على الفصول التي يدرّسها كل معلم، ويُحسب النصاب والعجز تلقائياً. تُحفظ وتعود إليها متى شئت.</p>
-      <div class="row" style="margin-top:4px"><button id="budgetOpen" type="button">إدخال ميزانية القسم</button><span id="budgetState" class="meta"></span></div>
+      <div class="row" style="margin-top:4px"><button id="budgetOpen" type="button">إدخال ميزانية القسم</button><button id="budgetTemplate" class="ghost" type="button">تحميل نموذج المنصة (Excel)</button><span id="budgetState" class="meta"></span></div>
       <details style="margin-top:14px"><summary class="meta" style="cursor:pointer">أو أرفق ملف الميزانية بدلاً من ذلك</summary>
       <label for="budgetFile">ميزانية القسم (اختياري): حتى 10 ملفات، مجموعها 10 ميغابايت</label>
       <div class="meta">PDF أو صورة أو Word أو Excel أو ملف مضغوط (ZIP أو RAR أو 7z). يمكنك الاختيار أكثر من مرة.</div>
+      <p id="budgetPlea" class="plea"></p>
       <input id="budgetFile" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.zip,.rar,.7z,image/*">
+      <div id="formAsk"></div>
       <div id="fileList"></div>
       </details>
     </div>
@@ -259,6 +280,14 @@
       <label>حصص الأسبوع للفصل الواحد</label>
       <div class="periods" id="bePeriods"></div>
     </div>
+    <div class="card">
+      <h2>النموذج الرسمي</h2>
+      <p class="lead" style="font-size:14px">نزّل ميزانية القسم بالنموذج الرسمي، أو ارفع النموذج معبّأً فتُملأ البطاقات منه.</p>
+      <div class="row" style="margin-top:4px"><button id="form_xlsx" class="ghost" type="button">تنزيل Excel</button><button id="form_pdf" class="ghost" type="button">تنزيل PDF</button><button id="form_png" class="ghost" type="button">تنزيل صورة</button></div>
+      <div class="row"><button id="formUpload" type="button">رفع Excel معبّأ</button><input id="formFile" type="file" accept=".xlsx" class="hidden"><span id="formMsg" class="meta"></span></div>
+      <p id="formPlea" class="plea"></p>
+      <div id="beReview" class="review hidden"></div>
+    </div>
     <div id="beTeachers"></div>
     <button id="beAdd" class="ghost" type="button" style="width:100%;border-style:dashed">+ إضافة معلم</button>
     <div class="card" style="margin-top:14px">
@@ -276,5 +305,6 @@
 </main>
 
 <script src="app.js"></script>
+<script src="form.js"></script>
 </body>
 </html>

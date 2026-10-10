@@ -63,10 +63,16 @@ function showFiles() {
     return el('div', { className: 'file' }, el('span', {}, el('bdi', { textContent: f.name }), ' — ' + mb(f.size)), x);
   }), ...(FILES.length > 1 ? [el('div', { className: 'meta', textContent: FILES.length + ' ملفات، المجموع ' + mb(FILES.reduce((a, f) => a + f.size, 0)) })] : []));
 }
-$('budgetFile').onchange = () => {
-  for (const f of $('budgetFile').files)
-    if (!FILES.some(g => g.name === f.name && g.size === f.size)) FILES.push(f);
+$('budgetFile').onchange = async () => {
+  const picked = [...$('budgetFile').files];
   $('budgetFile').value = '';
+  for (const f of picked) {
+    if (FILES.some(g => g.name === f.name && g.size === f.size)) continue;
+    // The platform's own Excel form fills the budget instead of travelling as an attachment (form.js).
+    if (await offerForm(f)) continue;
+    FILES.push(f);
+  }
+  $('budgetPlea').classList.toggle('warnPlea', FILES.some(f => !/\.xlsx$/i.test(f.name)));
   showFiles();
 };
 
@@ -502,8 +508,9 @@ function dupes(teachers) {
 let BUDGET = null; // { department, name, data, onDone }
 let saveTimer = null, dirty = false;
 
-function openBudget(department, name, onDone) {
-  BUDGET = { department, name, data: null, onDone };
+function openBudget(department, name, onDone, afterLoad) {
+  BUDGET = { department, name, data: null, onDone, review: null };
+  $('beReview').replaceChildren(); $('beReview').classList.add('hidden'); $('formMsg').textContent = '';
   $('teacher').classList.add('hidden'); $('admin').classList.add('hidden'); $('bedit').classList.remove('hidden');
   $('beTitle').textContent = 'ميزانية قسم ' + department;
   $('beTeachers').replaceChildren(el('div', { className: 'card meta', textContent: 'جارٍ التحميل...' }));
@@ -514,9 +521,12 @@ function openBudget(department, name, onDone) {
     renderBudget();
     $('beMsg').textContent = o.budget.updated_at ? 'آخر حفظ: ' + new Date(o.budget.updated_at).toLocaleString('ar-KW') + (o.budget.updated_by ? ' (' + o.budget.updated_by + ')' : '') : 'لم تُحفظ بعد';
     window.scrollTo(0, 0);
+    if (afterLoad) afterLoad();
   }).catch(e => $('beTeachers').replaceChildren(el('div', { className: 'card meta', textContent: e })));
 }
 function closeBudget() {
+  // A filled form not yet approved is dropped, not saved.
+  if (BUDGET && BUDGET.review) { BUDGET.data = BUDGET.review; BUDGET.review = null; dirty = false; clearTimeout(saveTimer); }
   if (dirty) saveBudget();
   $('bedit').classList.add('hidden');
   const done = BUDGET && BUDGET.onDone; BUDGET = null;
@@ -526,6 +536,7 @@ $('beBack').onclick = closeBudget;
 
 function changed() {
   dirty = true; renderSums();
+  if (BUDGET && BUDGET.review) { $('beMsg').textContent = 'لم يُحفظ: راجع ثم اضغط «اعتماد وحفظ»'; return; }
   clearTimeout(saveTimer); saveTimer = setTimeout(saveBudget, 800);
   $('beMsg').textContent = 'جارٍ الحفظ...';
 }
