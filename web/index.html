@@ -166,6 +166,38 @@
   table.grid td.odd select { border-color:var(--err); color:var(--err); font-weight:700; }
   table.grid select { width:112px; padding:4px 2px; border:1px solid var(--line); border-radius:6px; font:inherit; font-size:12px; background:#fbfdfe; }
   table.grid td small { display:block; font-size:10px; color:#7a5300; font-weight:700; }
+  /* محرر الميزانية بالجدول (الحاسوب) */
+  .btWrap { width:fit-content; max-width:100%; margin-inline:auto; overflow:auto; max-height:78vh; border:1px solid var(--line); border-radius:10px; background:#fff; }
+  table.bedT { border-collapse:separate; border-spacing:0; font-size:13px; }
+  table.bedT th, table.bedT td { border-bottom:1px solid var(--line); border-left:1px solid var(--line); padding:3px 4px; text-align:center; background:#fff; white-space:nowrap; }
+  table.bedT thead th { position:sticky; z-index:2; background:#eef3f7; font-size:12px; }
+  table.bedT thead tr:first-child th { top:0; } table.bedT thead tr:nth-child(2) th { top:25px; }
+  table.bedT .s1 { position:sticky; right:0; z-index:1; box-sizing:border-box; width:28px; min-width:28px; max-width:28px; padding:3px 0; background:#f6f9fb; }
+  table.bedT .s2 { position:sticky; right:28px; z-index:1; background:#f6f9fb; text-align:right; }
+  table.bedT thead .s1, table.bedT thead .s2 { z-index:3; background:#eef3f7; }
+  table.bedT td.nm { min-width:170px; font-weight:700; }
+  table.bedT td.nm input { width:160px; padding:3px 6px; font-size:13px; }
+  table.bedT td.nm .addSub { display:block; margin-top:3px; font-size:11px; padding:1px 4px; border:1px dashed var(--line); border-radius:6px; background:#fff; color:var(--mute); }
+  body.wideEdit main { max-width:1500px; }
+  body.wideEdit #bedit > .card, body.wideEdit #bedit > .row { max-width:728px; margin-inline:auto; }
+  table.bedT thead th { min-width:28px; }
+  table.bedT td.ns { font-weight:700; color:#7a5300; background:var(--gold-soft); }
+  table.bedT td.sj { font-size:12px; color:var(--mute); }
+  table.bedT td.sj select { font-size:12px; padding:2px; }
+  table.bedT td.nt input { width:150px; padding:3px 6px; font-size:12px; }
+  table.bedT td.hc { min-width:30px; height:26px; cursor:pointer; user-select:none; }
+  table.bedT td.hc:hover { background:#eef6fb; }
+  table.bedT td.hc:focus { outline:2px solid var(--sky); outline-offset:-2px; }
+  table.bedT td.hc.on { background:var(--navy); color:#fff; font-weight:700; }
+  table.bedT td.hc.off { background:#e4e8ec; }
+  table.bedT td.hc.on.dup { box-shadow:inset 0 0 0 2px var(--gold); }
+  table.bedT td.hc.on.odd { background:var(--err); }
+  table.bedT tr.last td { border-bottom:2px solid #c9d3dc; }
+  table.bedT tr.tot td { background:#eef3f7; font-weight:700; }
+  table.bedT tr.addRow select { font-size:13px; padding:4px 6px; }
+  table.bedT .del { padding:2px 6px; font-size:13px; }
+  table.bedT .st0 { position:sticky; right:0; z-index:1; text-align:right; display:inline-block; }
+  table.bedT td.st0 { display:table-cell; background:#eef3f7; }
   /* النموذج الرسمي */
   .plea { margin:8px 0; padding:8px 10px; border-radius:10px; background:#eef3f7; color:var(--ink); font-size:13px; line-height:1.7; }
   .plea.warnPlea { background:var(--gold-soft); border:1px solid var(--gold); }
@@ -288,6 +320,7 @@
       <p id="formPlea" class="plea"></p>
       <div id="beReview" class="review hidden"></div>
     </div>
+    <div class="row" style="justify-content:flex-end;margin:0 0 8px"><button id="beView" class="ghost hidden" type="button">عرض البطاقات</button></div>
     <div id="beTeachers"></div>
     <button id="beAdd" class="ghost" type="button" style="width:100%;border-style:dashed">+ إضافة معلم</button>
     <div class="card" style="margin-top:14px">
@@ -306,5 +339,6 @@
 
 <script src="app.js"></script>
 <script src="form.js"></script>
+<script src="table.js"></script>
 </body>
 </html>
