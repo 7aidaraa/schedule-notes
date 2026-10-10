@@ -179,7 +179,7 @@
   table.bedT td.nm input { width:160px; padding:3px 6px; font-size:13px; }
   table.bedT td.nm .addSub { display:block; margin-top:3px; font-size:11px; padding:1px 4px; border:1px dashed var(--line); border-radius:6px; background:#fff; color:var(--mute); }
   body.wideEdit main { max-width:1500px; }
-  body.wideEdit #bedit > .card, body.wideEdit #bedit > .row { max-width:728px; margin-inline:auto; }
+  body.wideEdit #bedit > .card, body.wideEdit #bedit > .row, body.wideEdit .tabs { max-width:728px; margin-inline:auto; }
   table.bedT thead th { min-width:28px; }
   table.bedT td.ns { font-weight:700; color:#7a5300; background:var(--gold-soft); }
   table.bedT td.sj { font-size:12px; color:var(--mute); }
@@ -225,7 +225,7 @@
 <header class="hero">
   <svg class="mark" viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="9" width="36" height="33" rx="6" fill="none" stroke="#fff" stroke-width="2.5"/><path d="M6 18h36M16 5v8M32 5v8" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><rect x="12" y="23" width="7" height="6" rx="1.5" fill="#f3d48f"/><rect x="21" y="23" width="7" height="6" rx="1.5" fill="#fff" opacity=".55"/><rect x="30" y="23" width="7" height="6" rx="1.5" fill="#fff" opacity=".55"/><rect x="12" y="32" width="7" height="6" rx="1.5" fill="#fff" opacity=".55"/><rect x="21" y="32" width="7" height="6" rx="1.5" fill="#fff" opacity=".55"/></svg>
   <h1>ميزانيات وملاحظات الجدول المدرسي</h1>
-  <div class="school">أرسل ملاحظتك على الجدول أو ميزانية قسمك</div>
+  <div class="school">أرسل ملاحظتك على الجدول</div>
 </header>
 <main>
   <section id="login" class="card">
@@ -250,6 +250,7 @@
       <div class="row noprint" style="margin:0 0 12px"><button id="schoolRefresh" class="ghost">تحديث</button><button id="schoolPrint" class="ghost">طباعة</button><button id="schoolToggle" class="ghost">عرض التفاصيل</button><button id="schoolCsv" class="ghost">تصدير CSV للجدول</button><span id="schoolMsg" class="meta"></span></div>
       <div id="schoolSummary" class="card"></div>
       <div id="schoolDetail" class="hidden"></div>
+      <div id="schoolFiles" class="card noprint"></div>
       </div>
       <div id="grid" class="hidden">
         <div class="row noprint" style="margin:0 0 10px"><button id="gridBack" class="ghost">رجوع</button><button id="gridRefresh" class="ghost">تحديث</button><span id="gridMsg" class="meta"></span></div>
@@ -259,6 +260,36 @@
           <div class="gridWrap"><table id="gridTable" class="grid"></table></div>
         </div>
       </div>
+  <div id="bedit" class="hidden">
+    <div class="card">
+      <div class="row" style="margin-top:0;justify-content:space-between"><h2 id="beTitle">ميزانية القسم</h2><button id="beBack" class="ghost" type="button">رجوع</button></div>
+      <p class="lead">اضغط على الشعبة لتختارها، واضغطها مرة أخرى لتزيلها. الضغط المطوّل يغيّر عدد حصصها إن خالفت المعتاد. الحفظ تلقائي.</p>
+      <label>حصص الأسبوع للفصل الواحد</label>
+      <div class="periods" id="bePeriods"></div>
+    </div>
+    <div class="card">
+      <h2>النموذج الرسمي</h2>
+      <p class="lead" style="font-size:14px">نزّل ميزانية القسم بالنموذج الرسمي، أو ارفع النموذج معبّأً فتُملأ البطاقات منه.</p>
+      <div class="row" style="margin-top:4px"><button id="form_xlsx" class="ghost" type="button">تنزيل Excel</button><button id="form_pdf" class="ghost" type="button">تنزيل PDF</button><button id="form_png" class="ghost" type="button">تنزيل صورة</button></div>
+      <div class="row"><button id="formUpload" type="button">رفع Excel معبّأ</button><input id="formFile" type="file" accept=".xlsx" class="hidden"><span id="formMsg" class="meta"></span></div>
+      <p id="formPlea" class="plea"></p>
+      <div id="beReview" class="review hidden"></div>
+    </div>
+    <div class="row" style="justify-content:flex-end;margin:0 0 8px"><button id="beView" class="ghost hidden" type="button">عرض البطاقات</button></div>
+    <div id="beTeachers"></div>
+    <button id="beAdd" class="ghost" type="button" style="width:100%;border-style:dashed">+ إضافة معلم</button>
+    <div class="card" style="margin-top:14px">
+      <h2>ميزانية المعلمين</h2>
+      <div class="sums" style="margin-top:10px">
+        <div><b>العدد المطلوب</b><input id="beReq" type="number" inputmode="numeric" min="0" max="99" placeholder="—"></div>
+        <div><b>الموجود</b><span id="beHave">0</span></div>
+        <div><b>العجز</b><span id="beGap">—</span></div>
+      </div>
+      <label for="beNote">ملاحظات</label>
+      <textarea id="beNote" maxlength="1000" placeholder="أي ملاحظة على ميزانية القسم"></textarea>
+      <div class="row"><button id="beSave" type="button">حفظ</button><span id="beMsg" class="meta"></span></div>
+    </div>
+  </div>
     </div>
     <div id="book" class="hidden"><div id="bookList"></div></div>
     <div id="reqView">
@@ -303,36 +334,6 @@
       <input id="phone" type="tel" inputmode="numeric" maxlength="16" dir="ltr" placeholder="9xxxxxxx">
       <div class="row"><button id="sendBtn">إرسال</button></div>
       <div id="sendMsg" class="msg"></div>
-    </div>
-  </section>
-  <section id="bedit" class="hidden">
-    <div class="card">
-      <div class="row" style="margin-top:0;justify-content:space-between"><h2 id="beTitle">ميزانية القسم</h2><button id="beBack" class="ghost" type="button">رجوع</button></div>
-      <p class="lead">اضغط على الشعبة لتختارها، واضغطها مرة أخرى لتزيلها. الضغط المطوّل يغيّر عدد حصصها إن خالفت المعتاد. الحفظ تلقائي.</p>
-      <label>حصص الأسبوع للفصل الواحد</label>
-      <div class="periods" id="bePeriods"></div>
-    </div>
-    <div class="card">
-      <h2>النموذج الرسمي</h2>
-      <p class="lead" style="font-size:14px">نزّل ميزانية القسم بالنموذج الرسمي، أو ارفع النموذج معبّأً فتُملأ البطاقات منه.</p>
-      <div class="row" style="margin-top:4px"><button id="form_xlsx" class="ghost" type="button">تنزيل Excel</button><button id="form_pdf" class="ghost" type="button">تنزيل PDF</button><button id="form_png" class="ghost" type="button">تنزيل صورة</button></div>
-      <div class="row"><button id="formUpload" type="button">رفع Excel معبّأ</button><input id="formFile" type="file" accept=".xlsx" class="hidden"><span id="formMsg" class="meta"></span></div>
-      <p id="formPlea" class="plea"></p>
-      <div id="beReview" class="review hidden"></div>
-    </div>
-    <div class="row" style="justify-content:flex-end;margin:0 0 8px"><button id="beView" class="ghost hidden" type="button">عرض البطاقات</button></div>
-    <div id="beTeachers"></div>
-    <button id="beAdd" class="ghost" type="button" style="width:100%;border-style:dashed">+ إضافة معلم</button>
-    <div class="card" style="margin-top:14px">
-      <h2>ميزانية المعلمين</h2>
-      <div class="sums" style="margin-top:10px">
-        <div><b>العدد المطلوب</b><input id="beReq" type="number" inputmode="numeric" min="0" max="99" placeholder="—"></div>
-        <div><b>الموجود</b><span id="beHave">0</span></div>
-        <div><b>العجز</b><span id="beGap">—</span></div>
-      </div>
-      <label for="beNote">ملاحظات</label>
-      <textarea id="beNote" maxlength="1000" placeholder="أي ملاحظة على ميزانية القسم"></textarea>
-      <div class="row"><button id="beSave" type="button">حفظ</button><span id="beMsg" class="meta"></span></div>
     </div>
   </section>
 </main>

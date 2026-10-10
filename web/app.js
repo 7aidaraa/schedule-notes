@@ -104,14 +104,17 @@ function setupForm(teachers) {
   if (!$('items').children.length) addItem();
 }
 // The role is known from the staff directory: heads of department get the budget field.
+// Budgets live only in the developer's «الميزانيات» tab for now (2026-10-10); true brings the heads' card back.
+const BUDGET_FOR_HEADS = false;
 const person = () => TEACHERS.find(t => t.name === $('name').value.trim());
 const isHead = () => !!(person() || {}).is_head;
 function showRole() {
   const t = person();
   $('roleTag').replaceChildren(...(t ? [t.is_head ? el('b', { textContent: 'رئيس قسم ' + t.department }) : 'معلم'] : []));
-  $('budget').classList.toggle('hidden', !isHead());
-  if (!isHead()) { FILES = []; showFiles(); }
-  showBudgetState();
+  const head = BUDGET_FOR_HEADS && isHead();
+  $('budget').classList.toggle('hidden', !head);
+  if (!head) { FILES = []; showFiles(); }
+  if (BUDGET_FOR_HEADS) showBudgetState();
 }
 
 // Each request is its own card with its own reason (and attachment for heads of department).
@@ -211,10 +214,8 @@ function card(r) {
   if (r.phone) c.append(el('div', { className: 'row', style: 'margin-top:0' }, waBtn(r.phone, r.name, r.request),
     el('a', { href: 'tel:+965' + r.phone, textContent: r.phone, dir: 'ltr' })));
 
-  // Rows saved before multi-file support carry a single file in file_*.
-  const files = r.files && r.files.length ? r.files : r.file_path ? [{ name: r.file_name, type: r.file_type }] : [];
-  if (files.length) c.append(el('div', { className: 'field' }, el('b', { textContent: 'ميزانية القسم' + (files.length > 1 ? ' (' + files.length + ' ملفات)' : '') + ':' })),
-    ...files.map((f, n) => fileRow(r, f, n)));
+  // Budget files are shown on the budgets page, grouped by department.
+  if (filesOf(r).length) c.append(el('div', { className: 'meta', textContent: '📎 مرفق ميزانية القسم: في تبويب «الميزانيات»' }));
 
   // The admin's constraint for this request: saving it lists it under «قيود الجدول» and marks the request done.
   const note = el('textarea', { value: r.draft ?? r.note, placeholder: 'اكتب القيد كما سيُطبَّق في الجدول' });
@@ -241,6 +242,8 @@ function card(r) {
   return c;
 }
 
+// Rows saved before multi-file support carry a single file in file_*.
+const filesOf = r => r.files && r.files.length ? r.files : r.file_path ? [{ name: r.file_name, type: r.file_type }] : [];
 // One attachment: its name, view (not for archives) and download.
 function fileRow(r, f, n) {
   const preview = el('div', { className: 'preview' });
@@ -511,7 +514,8 @@ let saveTimer = null, dirty = false;
 function openBudget(department, name, onDone, afterLoad) {
   BUDGET = { department, name, data: null, onDone, review: null };
   $('beReview').replaceChildren(); $('beReview').classList.add('hidden'); $('formMsg').textContent = '';
-  $('teacher').classList.add('hidden'); $('admin').classList.add('hidden'); $('bedit').classList.remove('hidden');
+  // The developer edits inside the budgets tab (tabs stay on screen); a head gets the editor instead of the form.
+  $('teacher').classList.add('hidden'); $(ROLE === 'admin' ? 'schoolMain' : 'admin').classList.add('hidden'); $('bedit').classList.remove('hidden');
   $('beTitle').textContent = 'ميزانية قسم ' + department;
   $('beTeachers').replaceChildren(el('div', { className: 'card meta', textContent: 'جارٍ التحميل...' }));
   $('beMsg').textContent = '';
@@ -831,6 +835,21 @@ async function loadSchool() {
   $('schoolMsg').textContent = 'جارٍ التحميل...';
   try { SCHOOL = (await call('budgets')).rows; renderSchool(); if (GRID_OPEN) renderGrid(); $('schoolMsg').textContent = ''; }
   catch (e) { $('schoolMsg').textContent = e; }
+  loadBudgetFiles();
+}
+// «ملفات الميزانية المرفقة»: the files sent with requests, by department (newest first).
+async function loadBudgetFiles() {
+  const box = $('schoolFiles');
+  box.replaceChildren(el('h2', { textContent: 'ملفات الميزانية المرفقة' }), el('div', { className: 'meta', textContent: 'جارٍ التحميل...' }));
+  try { ROWS = (await call('list')).rows; } catch (e) { box.lastChild.textContent = e; return; }
+  const withFiles = ROWS.filter(r => filesOf(r).length);
+  if (!withFiles.length) { box.lastChild.textContent = 'لا ملفات مرفقة.'; return; }
+  const depts = [...new Set(withFiles.map(r => r.department || '—'))];
+  box.replaceChildren(el('h2', { textContent: 'ملفات الميزانية المرفقة' }), ...depts.map(dp => el('div', { className: 'field' },
+    el('b', { textContent: dp }),
+    ...withFiles.filter(r => (r.department || '—') === dp).map(r => el('div', { style: 'margin:6px 0 10px' },
+      el('div', { className: 'meta', textContent: r.name + ' · ' + new Date(r.created_at).toLocaleDateString('ar-KW') }),
+      ...filesOf(r).map((f, n) => fileRow(r, f, n)))))));
 }
 function renderSchool() {
   const depts = [...new Set(TEACHERS.map(t => t.department))];
@@ -846,7 +865,7 @@ function renderSchool() {
     el('thead', {}, el('tr', {}, ...['القسم', 'رئيس القسم', 'آخر تحديث', ''].map(h => el('th', { textContent: h })))),
     el('tbody', {}, ...rows.map(r => {
       const edit = el('button', { className: 'ghost noprint', textContent: 'تعديل', style: 'padding:4px 12px' });
-      edit.onclick = () => openBudget(r.dp, 'المدير', () => { $('admin').classList.remove('hidden'); loadSchool(); });
+      edit.onclick = () => openBudget(r.dp, 'المدير', () => { $('schoolMain').classList.remove('hidden'); loadSchool(); });
       const view = el('button', { className: 'ghost noprint', textContent: 'معاينة', style: 'padding:4px 12px' });
       view.onclick = () => showDetail([r]);
       return el('tr', {}, td(r.dp), td(r.head),
