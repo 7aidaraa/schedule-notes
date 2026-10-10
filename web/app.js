@@ -8,6 +8,8 @@ let PASS = '';
 let ROLE = '';
 let BOOK = null; // admin: phone book, used to pre-fill the number when adding a request for a teacher
 let ROWS = [];
+// Departments in alphabetical order, the article «ال» ignored (الأحياء before التربية).
+const alpha = list => [...list].sort((a, b) => a.replace(/^ال/, '').localeCompare(b.replace(/^ال/, ''), 'ar'));
 const $ = id => document.getElementById(id);
 
 async function call(action, data) {
@@ -85,7 +87,7 @@ function fillNames() {
 }
 function setupForm(teachers) {
   TEACHERS = teachers;
-  options($('deptList'), [...new Set(teachers.map(t => t.department))]);
+  options($('deptList'), alpha(new Set(teachers.map(t => t.department))));
   fillNames();
   $('dept').oninput = () => {
     fillNames();
@@ -844,7 +846,7 @@ async function loadBudgetFiles() {
   try { ROWS = (await call('list')).rows; } catch (e) { box.lastChild.textContent = e; return; }
   const withFiles = ROWS.filter(r => filesOf(r).length);
   if (!withFiles.length) { box.lastChild.textContent = 'لا ملفات مرفقة.'; return; }
-  const depts = [...new Set(withFiles.map(r => r.department || '—'))];
+  const depts = alpha(new Set(withFiles.map(r => r.department || '—')));
   box.replaceChildren(el('h2', { textContent: 'ملفات الميزانية المرفقة' }), ...depts.map(dp => el('div', { className: 'field' },
     el('b', { textContent: dp }),
     ...withFiles.filter(r => (r.department || '—') === dp).map(r => el('div', { style: 'margin:6px 0 10px' },
@@ -852,7 +854,7 @@ async function loadBudgetFiles() {
       ...filesOf(r).map((f, n) => fileRow(r, f, n)))))));
 }
 function renderSchool() {
-  const depts = [...new Set(TEACHERS.map(t => t.department))];
+  const depts = alpha(new Set(TEACHERS.map(t => t.department)));
   const rows = depts.map(dp => {
     const b = SCHOOL.find(x => x.department === dp);
     const head = (TEACHERS.find(t => t.department === dp && t.is_head) || {}).name || '—';
