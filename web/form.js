@@ -31,6 +31,9 @@ function formRows(dp, d) {
   });
 }
 const headOf = dp => { const h = TEACHERS.find(t => t.department === dp && t.is_head); return h ? h.nick || h.name : ''; };
+// The head of department is marked «رئيس القسم» in the notes, unless the note already says so.
+const HEAD_NOTE = 'رئيس القسم';
+const withHeadNote = (dp, nick, note) => nick && nick === headOf(dp) && !/رئيس/.test(note || '') ? (note ? HEAD_NOTE + ' — ' + note : HEAD_NOTE) : note || '';
 const cellMark = (dp, subj, c, h) => h === undefined ? '' : h === officialFor(dp, subj === dp ? null : subj, c) ? '✓' : h;
 
 async function imageB64(path) {
@@ -60,6 +63,7 @@ async function buildXlsx(dp, d) {
   meta.getCell('A2').value = 'القسم'; meta.getCell('B2').value = dp;
   meta.getCell('A3').value = 'العام'; meta.getCell('B3').value = FORM.year;
   meta.getCell('A4').value = 'تاريخ التنزيل'; meta.getCell('B4').value = new Date().toISOString().slice(0, 10);
+  meta.getCell('A5').value = 'رئيس القسم'; meta.getCell('B5').value = headOf(dp);
   const staff = [...new Set([...TEACHERS.filter(t => t.department === dp).map(t => t.nick || t.name), ...rows.map(r => r.nick)])];
   staff.forEach((n, i) => { meta.getCell('D' + (i + 1)).value = n; });
   subs.forEach((s, i) => { meta.getCell('E' + (i + 1)).value = s; });
@@ -112,7 +116,8 @@ async function buildXlsx(dp, d) {
       row.getCell(1).value = x.n;
       if (x.t) row.getCell(2).value = x.t.nick;
       row.getCell(3).value = { formula: `SUM(${L(HELP)}${r}:${L(HELP)}${r + x.span - 1})` };
-      if (x.t && x.t.note) row.getCell(NOTE).value = x.t.note;
+      const note = x.t ? withHeadNote(dp, x.t.nick, x.t.note) : '';
+      row.getCell(NOTE).value = note || (headOf(dp) ? { formula: `IF($B${r}=_منصة!$B$5,"${HEAD_NOTE}","")` } : null);
     }
     row.getCell(4).value = x.line.subj || null;
     classes.forEach((c, i) => { const v = cellMark(dp, x.line.subj, c, x.line.cells[c]); if (v !== '') row.getCell(C0 + i).value = v; });
@@ -268,7 +273,7 @@ function formPage(dp, d) {
       if (j === 0) tr.append(el('td', { rowSpan: t.lines.length, textContent: i + 1 }), el('td', { rowSpan: t.lines.length, className: 'fp-n', textContent: t.nick }), el('td', { rowSpan: t.lines.length, className: 'fp-s', textContent: total }));
       tr.append(el('td', { textContent: line.subj || '' }));
       classes.forEach(c => { const off = officialFor(dp, multi ? line.subj : null, c), v = cellMark(dp, line.subj, c, line.cells[c]); tr.append(el('td', { className: !off && v === '' ? 'fp-off' : v !== '' ? 'fp-on' : '', textContent: v })); });
-      if (j === 0) tr.append(el('td', { rowSpan: t.lines.length, className: 'fp-note', textContent: t.note }));
+      if (j === 0) tr.append(el('td', { rowSpan: t.lines.length, className: 'fp-note', textContent: withHeadNote(dp, t.nick, t.note) }));
       return tr;
     }))));
   const have = rows.length, req = d.required;
