@@ -41,7 +41,7 @@ $('loginBtn').onclick = async () => {
     if (role === 'head') document.querySelector('main').append($('bedit'));
     if (role === 'admin') $('whoTitle').textContent = 'بيانات المعلم';
     setupForm(teachers || []);
-    if (role === 'admin') tab('school'); // the admin lands on the budgets
+    if (role === 'admin') { $('tabSchool').classList.toggle('hidden', !BUDGETS_ON); tab(BUDGETS_ON ? 'school' : 'rules'); }
   } catch (e) { msg($('loginMsg'), e, 'err'); }
   btn.disabled = false;
 };
@@ -109,7 +109,9 @@ function setupForm(teachers) {
 }
 // The role is known from the staff directory: heads of department get the budget field.
 // Heads of department see their budget only when signed in with the heads' password (role «head»).
-const budgetForHeads = () => ROLE === 'head';
+// Budgets moved to the school's other platform (2026-10-10): hidden here, code and data kept; true brings them back.
+const BUDGETS_ON = false;
+const budgetForHeads = () => BUDGETS_ON && ROLE === 'head';
 const person = () => TEACHERS.find(t => t.name === $('name').value.trim());
 const isHead = () => !!(person() || {}).is_head;
 function showRole() {
@@ -219,7 +221,8 @@ function card(r) {
     el('a', { href: 'tel:+965' + r.phone, textContent: r.phone, dir: 'ltr' })));
 
   // Budget files are shown on the budgets page, grouped by department.
-  if (filesOf(r).length) c.append(el('div', { className: 'meta', textContent: '📎 مرفق ميزانية القسم: في تبويب «الميزانيات»' }));
+  if (filesOf(r).length && BUDGETS_ON) c.append(el('div', { className: 'meta', textContent: '📎 مرفق ميزانية القسم: في تبويب «الميزانيات»' }));
+  else if (filesOf(r).length) c.append(el('div', { className: 'field' }, el('b', { textContent: 'ميزانية القسم:' })), ...filesOf(r).map((f, n) => fileRow(r, f, n)));
 
   // The admin's constraint for this request: saving it lists it under «قيود الجدول» and marks the request done.
   const note = el('textarea', { value: r.draft ?? r.note, placeholder: 'اكتب القيد كما سيُطبَّق في الجدول' });
