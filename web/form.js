@@ -1,6 +1,6 @@
 // ---- النموذج الرسمي لميزانية القسم: تنزيل Excel / PDF / صورة، ورفع Excel معبّأ يملأ المحرر ----
 // الديباجة الرسمية (الشعاران واسم المدرسة) في الملفات المنزّلة فقط؛ شاشات المنصة بلا شعار (قرار صاحب المنصة 2026-10-10).
-const FORM = { year: '2026/2027', principal: 'صلاح الناصر', version: 1, mark: 'نموذج المنصة' };
+const FORM = { ...SCHOOL_DATA.form, version: 1, mark: 'نموذج المنصة' };
 const FORM_PLEA = 'نرجو التكرم برفع الميزانية بملف Excel من نموذج المنصة؛ فالمنصة تقرؤه آلياً وتُدخل بياناته في ميزانية القسم دون إعادة كتابة، فتقلّ الأخطاء ويُختصر الوقت عليكم وعلى المطور. أما ملف PDF أو الصورة فيُحفظ مرفقاً للاطلاع فقط. شاكرين لكم حسن تعاونكم.';
 const TICKS = ['✓', '✔', '√', '@', 'x', 'X', '×'];
 
@@ -85,14 +85,14 @@ async function buildXlsx(dp, d) {
   ws.getColumn(1).width = 4; ws.getColumn(2).width = 22; ws.getColumn(3).width = 7; ws.getColumn(4).width = multi ? 15 : 13;
   for (let c = C0; c <= CN; c++) ws.getColumn(c).width = 5.6;
   ws.getColumn(NOTE).width = 18; ws.getColumn(HELP).hidden = true;
-  const moe = wb.addImage({ base64: await imageB64('assets/moe.jpeg'), extension: 'jpeg' });
-  const school = wb.addImage({ base64: await imageB64('assets/school.png'), extension: 'png' });
+  const moe = wb.addImage({ base64: await imageB64(FORM.logos.ministry), extension: 'jpeg' });
+  const school = wb.addImage({ base64: await imageB64(FORM.logos.school), extension: 'png' });
   ws.addImage(moe, { tl: { col: 1.4, row: 0.1 }, ext: { width: 66, height: 74 } });
   ws.addImage(school, { tl: { col: NOTE - 2.6, row: 0.4 }, ext: { width: 120, height: 63 } });
   const put = (range, value, font) => { ws.mergeCells(range); const c = ws.getCell(range.split(':')[0]); c.value = value; c.alignment = center; if (font) c.font = font; };
-  put('A5:D5', 'وزارة التربية', { bold: true, size: 12 });
-  put('A6:D6', 'الإدارة العامة لمنطقة العاصمة التعليمية', { size: 11 });
-  put('A7:D7', 'ثانوية أحمد البشر الرومي بنين', { size: 11 });
+  put('A5:D5', FORM.ministry, { bold: true, size: 12 });
+  put('A6:D6', FORM.region, { size: 11 });
+  put('A7:D7', FORM.school, { size: 11 });
   put(`${L(C0 + 1)}2:${L(CN - 2)}3`, 'ميزانية الأقسام العلمية للعام الدراسي ' + FORM.year, { bold: true, size: 16 });
   put(`${L(C0 + 1)}4:${L(CN - 2)}5`, 'القسم العلمي / ' + dp, { bold: true, size: 13 });
   put(`${L(NOTE - 3)}6:${lastL}6`, 'العام الدراسي ' + FORM.year, { size: 11 });
@@ -284,9 +284,9 @@ function formPage(dp, d, bare) {
   if (bare) return el('div', { className: 'fp fp-bare' }, table, ...sum);
   return el('div', { className: 'fp' },
     el('div', { className: 'fp-head' },
-      el('div', { className: 'fp-side' }, el('img', { src: 'assets/moe.jpeg', className: 'fp-moe' }), el('b', { textContent: 'وزارة التربية' }), el('span', { textContent: 'الإدارة العامة لمنطقة العاصمة التعليمية' }), el('span', { textContent: 'ثانوية أحمد البشر الرومي بنين' })),
+      el('div', { className: 'fp-side' }, el('img', { src: FORM.logos.ministry, className: 'fp-moe' }), el('b', { textContent: FORM.ministry }), el('span', { textContent: FORM.region }), el('span', { textContent: FORM.school })),
       el('div', { className: 'fp-mid' }, el('div', { className: 'fp-title', textContent: 'ميزانية الأقسام العلمية للعام الدراسي ' + FORM.year }), el('div', { className: 'fp-dept', textContent: 'القسم العلمي / ' + dp })),
-      el('div', { className: 'fp-side' }, el('img', { src: 'assets/school.png', className: 'fp-school' }), el('span', { textContent: 'العام الدراسي ' + FORM.year }))),
+      el('div', { className: 'fp-side' }, el('img', { src: FORM.logos.school, className: 'fp-school' }), el('span', { textContent: 'العام الدراسي ' + FORM.year }))),
     el('div', { className: 'fp-line' }), table, ...sum,
     el('div', { className: 'fp-sign' },
       el('div', {}, el('b', { textContent: 'رئيس القسم' }), el('div', { textContent: headOf(dp) }), el('div', { textContent: 'التوقيع: ....................' })),
