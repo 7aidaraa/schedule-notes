@@ -3,10 +3,15 @@
  * يُلصق في Apps Script، ثم يُضاف onOpenImport() إلى onOpen الموجود (أو تُستدعى importFromPlatform من قائمتكم).
  * زر واحد يعرف نوع الملف من عناوينه (UTF-8 مع BOM، الصف الأول عناوين، المطابقة بأسماء الأعمدة لا مواضعها):
  *
- * 1) ملف الميزانية «ميزانية_المنصة_*.csv» — من زر «تصدير CSV للجدول» في تبويب الميزانيات:
- *      المعرف, اسم الشهرة, الاسم الثلاثي, القسم, الصف, المادة, الحصص
+ * 1) ملف الميزانية «ميزانية_المنصة_*.csv» — من زر «تصدير CSV للجدول» في قسم الميزانيات بالمنصة المدرسية:
+ *      المعرف, اسم الشهرة, الاسم الثلاثي, القسم, الصف, المادة, الحصص [, الرقم المدني]
+ *    «المعلمون» (أولاً): المعلم يُطابق بالمعرف (User ID) ثم بالاسم الثلاثي.
+ *      الموجود: يُحدَّث الاسم الثلاثي والمادة والمادة الثانية (الأكثر حصصاً أولاً) والنصاب (مجموع حصصه) والمعرف.
+ *      الجديد: صف جديد في أول صف فارغ، باسم شهرة (الاسم الأول والأخير، أو الكامل إن تكرر) والرقم المدني إن كان 12 رقماً.
+ *      لا يُحذف أحد، ولا تُمس الفئة ولا الجناح ولا مشرف الجناح ولا البريد ولا الملاحظات ولا عمود القسم (صيغة).
+ *      من في الورقة وليس في الملف يُذكر في التقرير فقط.
  *    «التوزيع»: يمسح فقط أعمدة المواد التي وردت في الملف، ثم يضع اسم الشهرة في خانة (الصف، المادة).
- *    الأعمدة التي لم ترد (مثل التجاري) لا تُمس. «حمل المعلمين» و«المعلمون» لا يُكتب فيهما شيء.
+ *    الأعمدة التي لم ترد (مثل التجاري) لا تُمس. «حمل المعلمين» لا يُكتب فيه شيء.
  *
  * 2) ملف القيود «قيود_المنصة_*.csv» — من زر «تصدير CSV للشيت» في تبويب القيود:
  *      م, النطاق, النوع, القسم, المعلم, القيد, الإلزام, السبب, في الشيت, المقترح, المصدر
@@ -58,6 +63,8 @@ function importCsvText(text) {
   var cKind = col('السجل', true);
   if (cKind >= 0) rows = rows.filter(function (row) { return norm(get(row, cKind)) !== norm('قيد'); });
 
+  var staffReport = importStaff(staff, rows, get, cUid, cName, col('الصف'), cSubj, col('الحصص'), col('الرقم المدني', true));
+
   // «المعلمون»: المعرف → اسم الشهرة، الاسم الثلاثي → اسم الشهرة، اسم الشهرة → اسم الشهرة
   var sv = staff.getDataRange().getValues(), sh = sv[0].map(norm);
   var iUid = sh.indexOf(norm('User ID')), iName = sh.indexOf(norm('الاسم الثلاثي')), iNick = sh.indexOf(norm('اسم الشهرة'));
@@ -68,7 +75,78 @@ function importCsvText(text) {
     byName[norm(sv[r][iName])] = nick; nicks[norm(nick)] = nick;
   }
   var nickOf = function (row) { return byUid[get(row, cUid)] || byName[norm(get(row, cName))] || nicks[norm(get(row, cNick))]; };
-  return importDistribution(dist, rows, nickOf, get, cClass, cSubj, cName);
+  return staffReport + '<br>' + importDistribution(dist, rows, nickOf, get, cClass, cSubj, cName);
+}
+
+// «المعلمون»: تحديث من ملف الميزانية دون حذف أحد. الهوية: User ID ثم الاسم الثلاثي.
+function importStaff(staff, rows, get, cUid, cName, cClass, cSubj, cHours, cCivil) {
+  var sv = staff.getDataRange().getValues(), sh = sv[0].map(norm);
+  var at = function (name) { var i = sh.indexOf(norm(name)); if (i < 0) throw new Error('عمود «' + name + '» غير موجود في ورقة «المعلمون»'); return i; };
+  var iCivil = at('الرقم المدني'), iName = at('الاسم الثلاثي'), iSubj = at('المادة'), iSubj2 = at('مادة ثانية'),
+      iLoad = at('النصاب الأسبوعي'), iNick = at('اسم الشهرة'), iUid = at('User ID');
+
+  // معلمو الملف: المعرف، الاسم، الرقم المدني، حصص كل مادة.
+  var list = [], byKey = {};
+  rows.forEach(function (row) {
+    var uid = get(row, cUid), name = get(row, cName), key = uid || 'n:' + norm(name);
+    if (!name) return;
+    var t = byKey[key];
+    if (!t) { t = byKey[key] = { uid: uid, name: name, civil: '', subj: {}, load: 0 }; list.push(t); }
+    var civil = get(row, cCivil).replace(/\D+/g, '');
+    if (civil.length === 12) t.civil = civil;
+    var h = Number(get(row, cHours)) || 0, s = get(row, cSubj);
+    t.load += h;
+    if (s) t.subj[s] = (t.subj[s] || 0) + h;
+  });
+
+  var rowOfUid = {}, rowOfName = {}, used = {};
+  for (var r = 1; r < sv.length; r++) {
+    var u = String(sv[r][iUid] || '').trim(), n = norm(sv[r][iName]);
+    if (u) rowOfUid[u] = r;
+    if (n) rowOfName[n] = r;
+    var k = norm(sv[r][iNick]); if (k) used[k] = true;
+  }
+  var cols = [iCivil, iName, iSubj, iSubj2, iLoad, iNick, iUid];
+  var updated = 0, added = [], renamed = [], extra = [], seen = {};
+  list.forEach(function (t) {
+    var subs = Object.keys(t.subj).sort(function (a, b) { return t.subj[b] - t.subj[a]; });
+    if (subs.length > 2) extra.push(t.name + ': ' + subs.join('، '));
+    var r = (t.uid && rowOfUid[t.uid] !== undefined) ? rowOfUid[t.uid] : rowOfName[norm(t.name)];
+    if (r === undefined) {
+      // صف جديد: أول صف لا رقم مدني فيه ولا اسم.
+      for (r = 1; r < sv.length && (String(sv[r][iCivil]).trim() || String(sv[r][iName]).trim()); r++);
+      if (r === sv.length) sv.push(sv[0].map(function () { return ''; }));
+      sv[r][iCivil] = t.civil;
+      var w = t.name.split(/\s+/), nick = w.length > 1 ? w[0] + ' ' + w[w.length - 1] : t.name;
+      if (used[norm(nick)]) nick = t.name;
+      used[norm(nick)] = true;
+      sv[r][iNick] = nick;
+      added.push(t.name + (t.civil ? '' : ' (بلا رقم مدني)'));
+    } else {
+      updated++;
+      if (String(sv[r][iName]).trim() !== t.name) renamed.push(String(sv[r][iName]).trim() + ' ← ' + t.name);
+    }
+    seen[r] = true;
+    sv[r][iName] = t.name;
+    sv[r][iSubj] = subs[0] || sv[r][iSubj];
+    sv[r][iSubj2] = subs[1] || '';
+    sv[r][iLoad] = t.load;
+    if (t.uid) sv[r][iUid] = t.uid;
+  });
+  var absent = [];
+  for (var q = 1; q < sv.length; q++) if (!seen[q] && String(sv[q][iName]).trim()) absent.push(String(sv[q][iName]).trim());
+
+  // يُكتب كل عمود من الأعمدة السبعة وحده، فلا تُمس الأعمدة الأخرى (القسم صيغة).
+  cols.forEach(function (ci) {
+    staff.getRange(2, ci + 1, sv.length - 1, 1).setValues(sv.slice(1).map(function (row) { return [row[ci]]; }));
+  });
+
+  var out = '<b>المعلمون:</b> حُدِّث ' + updated + ' معلماً' + (added.length ? '، وأُضيف ' + added.length : '') + '.';
+  if (added.length) out += '<br><b>جدد (أكمل لهم الفئة والجناح ومشرف الجناح، والرقم المدني إن نقص):</b><br>' + added.join('<br>');
+  if (renamed.length) out += '<br><b>تغيّر الاسم الثلاثي (اضغط «🔁 مزامنة أسماء العرض»):</b><br>' + renamed.join('<br>');
+  if (extra.length) out += '<br><b>أكثر من مادتين (كُتبت أكثر مادتين حصصاً):</b><br>' + extra.join('<br>');
+  if (absent.length) out += '<br><b>في الورقة وليسوا في الملف (لم يُحذفوا):</b><br>' + absent.join('<br>');
+  return out;
 }
 
 // «القيود بلغة عرفية»: تُمسح الورقة كلها، ثم العناوين والقائمة بترتيب المنصة وألوانها.
