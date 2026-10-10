@@ -126,25 +126,30 @@
   }
   /* «قيود الجدول»: a checklist, ticked items struck through like done notes. */
   .tabs button { padding:10px 6px; }
-  .rule { display:flex; align-items:flex-start; gap:10px; width:100%; padding:10px 4px; border:0; border-bottom:1px solid var(--line); border-radius:0; background:none; color:var(--ink); font-weight:400; text-align:right; box-shadow:none; }
-  .rule:last-child { border-bottom:0; }
-  .rule:hover { box-shadow:none; background:#f6f9fb; }
-  .rule .box { flex:none; width:22px; height:22px; margin-top:3px; border:2px solid var(--sky); border-radius:7px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:14px; }
+  .card.rules { padding:6px 10px; }
+  .rule { border-bottom:1px solid var(--line); padding:2px 0; }
+  .rule:last-of-type { border-bottom:0; }
+  .rule.hardOne { background:#fdebd6; } .rule.hardAll { background:#fadcdc; } .rule.soft { background:#e2f4e8; }
+  .ruleRow { display:flex; align-items:flex-start; gap:6px; }
+  .tick { flex:1; display:flex; align-items:flex-start; gap:10px; min-width:0; padding:8px 4px; border:0; border-radius:0; background:none; color:var(--ink); font-weight:400; text-align:right; box-shadow:none; }
+  .tick:hover { box-shadow:none; } .tick:disabled { cursor:default; opacity:1; }
+  .rule .box { flex:none; width:22px; height:22px; margin-top:3px; border:2px solid var(--sky); border-radius:7px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:14px; background:#fff; }
   .rule.on .box { background:var(--ok); border-color:var(--ok); }
   .rule.on .t { text-decoration:line-through; color:var(--mute); }
-  .rule .m { display:block; font-size:13px; color:var(--mute); }
-  .rule .lv { display:inline-block; margin-inline-start:6px; padding:0 8px; border-radius:99px; font-size:12px; background:#e8f1f7; color:var(--blue); }
-  .rule.editing { justify-content:space-between; cursor:default; }
-  .rule.editing:hover { background:none; }
-  .rule .tools { flex:none; display:flex; gap:4px; }
-  button.ib { padding:4px 8px; background:#fff; border:1.5px solid var(--line); border-radius:10px; font-size:15px; font-weight:400; color:var(--ink); box-shadow:none; }
+  .rule .m { display:block; font-size:12px; color:var(--mute); }
+  .rule .lv { display:inline-block; margin-inline-start:6px; padding:0 8px; border-radius:99px; font-size:11px; background:#ffffffb0; color:var(--blue); }
+  .rule .tools { flex:none; display:flex; gap:3px; padding-top:6px; }
+  .rule .panel { margin:0 34px 8px 4px; padding:8px 10px; border-radius:10px; background:#fff; border:1px solid var(--line); font-size:14px; }
+  .rule .panel .pre { white-space:pre-wrap; margin:2px 0 8px; }
+  button.ib { padding:3px 6px; background:#fff; border:1.5px solid var(--line); border-radius:9px; font-size:14px; font-weight:400; color:var(--ink); box-shadow:none; }
   button.ib:disabled { opacity:.3; cursor:default; }
   button.ib.warn { background:var(--gold); border-color:var(--gold); font-size:13px; font-weight:700; }
   .ruleForm { padding:10px 0; border-bottom:1px solid var(--line); }
-  .ruleForm textarea { min-height:70px; }
+  .ruleForm textarea { min-height:60px; margin-top:6px; }
   .ruleFields { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-top:6px; }
-  .ruleFields input { padding:8px; font-size:14px; }
-  @media (max-width:520px) { .ruleFields { grid-template-columns:1fr; } }
+  .ruleFields.two { grid-template-columns:1fr 1fr; }
+  .ruleFields input, .ruleFields select { padding:8px; font-size:14px; border:1.5px solid var(--line); border-radius:10px; font-family:inherit; width:100%; }
+  label.mini { margin:0; font-size:12px; font-weight:700; color:var(--mute); }
   .addRule { width:100%; margin-top:10px; border-style:dashed; }
   button.warn { background:var(--gold); color:#2b1d00; }
   /* «ميزانية كل الأقسام»: class names stay put while scrolling sideways, subject names while scrolling down. */
@@ -185,7 +190,7 @@
   <section id="admin" class="hidden">
     <div class="tabs"><button id="tabSchool" class="ghost on">الميزانيات</button><button id="tabRules" class="ghost">القيود</button><button id="tabReq" class="ghost">الطلبات</button><button id="tabAdd" class="ghost">إضافة طلب</button><button id="tabBook" class="ghost">الهواتف</button></div>
     <div id="rules" class="hidden">
-      <div class="row" style="margin:0 0 12px"><button id="rulesRefresh" class="ghost">تحديث</button><button id="rulesReset" class="ghost">رفع الشطب عن الكل</button><button id="rulesEdit" class="ghost">تحرير القائمة</button><span id="rulesMsg" class="meta"></span></div>
+      <div class="row" style="margin:0 0 12px"><button id="rulesRefresh" class="ghost">تحديث</button><button id="rulesReset" class="ghost">رفع الشطب عن الكل</button><button id="rulesEdit" class="ghost">تحرير القائمة</button><button id="rulesCsv" class="ghost">تصدير CSV للشيت</button><span id="rulesMsg" class="meta"></span></div>
       <div id="rulesList"></div>
     </div>
     <div id="school" class="hidden">

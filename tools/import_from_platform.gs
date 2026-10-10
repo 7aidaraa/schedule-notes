@@ -1,34 +1,32 @@
 /**
- * استيراد ملف CSV من «منصة ميزانيات وملاحظات الجدول المدرسي» إلى ملف «نظام الجدول المدرسي».
+ * استيراد ملفات CSV من «منصة ميزانيات وملاحظات الجدول المدرسي» إلى ملف «نظام الجدول المدرسي».
  * يُلصق في Apps Script، ثم يُضاف onOpenImport() إلى onOpen الموجود (أو تُستدعى importFromPlatform من قائمتكم).
+ * زر واحد يعرف نوع الملف من عناوينه (UTF-8 مع BOM، الصف الأول عناوين، المطابقة بأسماء الأعمدة لا مواضعها):
  *
- * نسق الملف (UTF-8 مع BOM، الصف الأول عناوين، المطابقة بأسماء الأعمدة لا مواضعها):
- *   المعرف, اسم الشهرة, الاسم الثلاثي, القسم, الصف, المادة, الحصص, السجل, القيد, السبب, الحالة, التاريخ, معرف الطلب
- *   - السجل = «توزيع»: سطر لمعلم في شعبة (الصف، المادة، الحصص).
- *   - السجل = «قيد»:   ملاحظة معلم على الجدول (القيد = طلبه، السبب = سببه، الحالة = جديد/تم، معرف الطلب ثابت).
+ * 1) ملف الميزانية «ميزانية_المنصة_*.csv» — من زر «تصدير CSV للجدول» في تبويب الميزانيات:
+ *      المعرف, اسم الشهرة, الاسم الثلاثي, القسم, الصف, المادة, الحصص
+ *    «التوزيع»: يمسح فقط أعمدة المواد التي وردت في الملف، ثم يضع اسم الشهرة في خانة (الصف، المادة).
+ *    الأعمدة التي لم ترد (مثل التجاري) لا تُمس. «حمل المعلمين» و«المعلمون» لا يُكتب فيهما شيء.
  *
- * ما يفعله الاستيراد (بضغطة زر، لا شيء تلقائي):
- *   1. «التوزيع»: يمسح فقط أعمدة المواد التي وردت في الملف، ثم يضع اسم الشهرة في خانة (الصف، المادة).
- *      الأعمدة التي لم ترد في الملف (مثل التجاري) لا تُمس.
- *   2. «القيود بلغة عرفية (حيدر)»: يحذف الكتلة السابقة التي عنوانها «مصدرة من منصة الجدول» ويكتبها من جديد
- *      في آخر الورقة، فلا تكرار. ما كتبه صاحب الملف بيده في عمود «الإلزام» لسطر ما يُحفظ ويُعاد (المفتاح: معرف الطلب).
- *   3. «حمل المعلمين» لا يُكتب فيه شيء: معادلاته تتحدث وحدها من «التوزيع» و«المعلمون».
- *   4. «المعلمون» لا تُمس إطلاقاً.
- *   5. تقرير بما لم يُطابَق: معلم غير موجود، صف أو مادة ليست في «التوزيع»، خانة جاءها معلمان.
+ * 2) ملف القيود «قيود_المنصة_*.csv» — من زر «تصدير CSV للشيت» في تبويب القيود:
+ *      م, النطاق, النوع, القسم, المعلم, القيد, الإلزام, السبب, في الشيت, المقترح, المصدر
+ *    «القيود بلغة عرفية (حيدر)»: تُمسح الورقة كلها ثم تُكتب القائمة بترتيب المنصة وألوانها
+ *    (برتقالي باهت: فردي صلب · أحمر باهت: عام صلب · أخضر باهت: مرن). لا تُمس ورقة «القيود» التي يقرؤها البرنامج.
+ *
+ * قبل أول استيراد: «ملف ← سجلّ الإصدارات» يحفظ نسخة يُرجع إليها.
  */
 
-var MARK = 'مصدرة من منصة الجدول';                 // عنوان كتلة الملاحظات في ورقة القيود
 var NOTES_SHEET = 'القيود بلغة عرفية (حيدر)';
-var NOTE_HEAD = ['النوع', 'القسم', 'المعلم', 'القيد', 'الإلزام', 'السبب', 'الحالة', 'التاريخ', 'معرف الطلب'];
+var COLORS = { hardOne: '#fdebd6', hardAll: '#fadcdc', soft: '#e2f4e8' };
 
 function onOpenImport() {
-  SpreadsheetApp.getUi().createMenu('المنصة').addItem('استيراد من ملف CSV (التوزيع + الملاحظات)', 'importFromPlatform').addToUi();
+  SpreadsheetApp.getUi().createMenu('المنصة').addItem('استيراد من ملف CSV (الميزانية أو القيود)', 'importFromPlatform').addToUi();
 }
 
 function importFromPlatform() {
   var html = HtmlService.createHtmlOutput(
     '<div style="font-family:sans-serif;direction:rtl;text-align:right">' +
-    '<p>اختر ملف CSV الذي أرسله المدير من المنصة.</p>' +
+    '<p>اختر ملف CSV الذي صدّره المدير من المنصة (الميزانية أو القيود).</p>' +
     '<input type="file" id="f" accept=".csv,text/csv"><br><br>' +
     '<button onclick="go()">استيراد</button> <span id="m"></span>' +
     '<script>function go(){var f=document.getElementById("f").files[0];if(!f)return;' +
@@ -41,17 +39,24 @@ function importFromPlatform() {
 
 function importCsvText(text) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var dist = ss.getSheetByName('التوزيع'), staff = ss.getSheetByName('المعلمون'), notes = ss.getSheetByName(NOTES_SHEET);
-  if (!dist || !staff) throw new Error('لم أجد ورقتي «التوزيع» و«المعلمون»');
-
-  var rows = Utilities.parseCsv(text.replace(/^﻿/, ''));
+  var rows = Utilities.parseCsv(text.replace(/^\uFEFF/, ''));
   var head = rows.shift().map(norm);
   var col = function (name, optional) { var i = head.indexOf(norm(name)); if (i < 0 && !optional) throw new Error('عمود «' + name + '» غير موجود في الملف'); return i; };
-  var cUid = col('المعرف'), cNick = col('اسم الشهرة'), cName = col('الاسم الثلاثي'), cDept = col('القسم'),
-      cClass = col('الصف'), cSubj = col('المادة'), cKind = col('السجل', true), cReq = col('القيد', true),
-      cWhy = col('السبب', true), cState = col('الحالة', true), cDate = col('التاريخ', true), cRid = col('معرف الطلب', true);
-  var get = function (row, i) { return i >= 0 ? String(row[i] || '').trim() : ''; };
-  var isNote = function (row) { return cKind >= 0 ? norm(get(row, cKind)) === norm('قيد') : (!get(row, cClass) && !!get(row, cReq)); };
+  var get = function (row, i) { return i >= 0 ? String(row[i] == null ? '' : row[i]).trim() : ''; };
+  rows = rows.filter(function (row) { return row.join('').trim(); });
+
+  if (head.indexOf(norm('النطاق')) >= 0) {
+    var notes = ss.getSheetByName(NOTES_SHEET);
+    if (!notes) throw new Error('لم أجد ورقة «' + NOTES_SHEET + '»');
+    return importConstraints(notes, rows, head, get);
+  }
+
+  var dist = ss.getSheetByName('التوزيع'), staff = ss.getSheetByName('المعلمون');
+  if (!dist || !staff) throw new Error('لم أجد ورقتي «التوزيع» و«المعلمون»');
+  var cUid = col('المعرف'), cNick = col('اسم الشهرة'), cName = col('الاسم الثلاثي'), cClass = col('الصف'), cSubj = col('المادة');
+  // ملف قديم فيه أسطر «قيد»: لا تُستورد من هنا بعد اليوم (القيود لها ملفها).
+  var cKind = col('السجل', true);
+  if (cKind >= 0) rows = rows.filter(function (row) { return norm(get(row, cKind)) !== norm('قيد'); });
 
   // «المعلمون»: المعرف → اسم الشهرة، الاسم الثلاثي → اسم الشهرة، اسم الشهرة → اسم الشهرة
   var sv = staff.getDataRange().getValues(), sh = sv[0].map(norm);
@@ -63,17 +68,30 @@ function importCsvText(text) {
     byName[norm(sv[r][iName])] = nick; nicks[norm(nick)] = nick;
   }
   var nickOf = function (row) { return byUid[get(row, cUid)] || byName[norm(get(row, cName))] || nicks[norm(get(row, cNick))]; };
-
-  var distRows = rows.filter(function (row) { return row.join('').trim() && !isNote(row); });
-  var noteRows = rows.filter(function (row) { return row.join('').trim() && isNote(row); });
-  var report = [];
-  report.push(importDistribution(dist, distRows, nickOf, get, cClass, cSubj, cName));
-  if (notes) report.push(importNotes(notes, noteRows, get, cDept, cName, cReq, cWhy, cState, cDate, cRid));
-  else report.push('<b>الملاحظات:</b> لم أجد ورقة «' + NOTES_SHEET + '» فلم تُستورد (' + noteRows.length + ' ملاحظة).');
-  return report.join('<br><br>');
+  return importDistribution(dist, rows, nickOf, get, cClass, cSubj, cName);
 }
 
-// «التوزيع»: تُمسح فقط أعمدة المواد الواردة في الملف، ثم تُملأ.
+// «القيود بلغة عرفية»: تُمسح الورقة كلها، ثم العناوين والقائمة بترتيب المنصة وألوانها.
+function importConstraints(sheet, rows, head, get) {
+  var cols = ['م', 'النطاق', 'النوع', 'القسم', 'المعلم', 'القيد', 'الإلزام', 'السبب', 'في الشيت', 'المقترح', 'المصدر'];
+  var idx = cols.map(function (c) { return head.indexOf(norm(c)); });
+  if (idx[5] < 0) throw new Error('عمود «القيد» غير موجود في الملف');
+  var out = [cols].concat(rows.map(function (row) { return idx.map(function (i) { return get(row, i); }); }));
+  sheet.clear();
+  if (sheet.getMaxColumns() < cols.length) sheet.insertColumnsAfter(sheet.getMaxColumns(), cols.length - sheet.getMaxColumns());
+  if (sheet.getMaxRows() < out.length) sheet.insertRowsAfter(sheet.getMaxRows(), out.length - sheet.getMaxRows());
+  sheet.getRange(1, 1, out.length, cols.length).setValues(out).setWrap(true).setVerticalAlignment('top');
+  sheet.getRange(1, 1, 1, cols.length).setFontWeight('bold').setBackground('#eef3f7');
+  sheet.setFrozenRows(1);
+  var bg = out.slice(1).map(function (r) {
+    var lvl = r[6], scope = r[1], hard = /صلب|لازم|ثابت/.test(lvl), soft = !hard && /مرن|مفض|مُفضَّل/.test(lvl);
+    var c = soft ? COLORS.soft : hard ? (scope === 'عام' ? COLORS.hardAll : COLORS.hardOne) : null;
+    return cols.map(function () { return c; });
+  });
+  if (bg.length) sheet.getRange(2, 1, bg.length, cols.length).setBackgrounds(bg);
+  return '<b>القيود:</b> مُسحت ورقة «' + NOTES_SHEET + '» وكُتب فيها ' + rows.length + ' قيداً بترتيب المنصة.';
+}
+
 function importDistribution(dist, distRows, nickOf, get, cClass, cSubj, cName) {
   var dv = dist.getDataRange().getValues();
   var subjCol = {}; dv[0].forEach(function (h, i) { if (i > 0 && h) subjCol[norm(h)] = i; });
@@ -98,46 +116,6 @@ function importDistribution(dist, distRows, nickOf, get, cClass, cSubj, cName) {
   if (missing.length) out += '<br><b>لم يُطابَق (' + missing.length + '):</b><br>' + uniq(missing).join('<br>');
   if (dup.length) out += '<br><b>خانة جاءها معلمان (' + dup.length + '):</b><br>' + dup.join('<br>');
   return out;
-}
-
-// «القيود بلغة عرفية»: كتلة واحدة بعنوان MARK في آخر الورقة؛ تُستبدل كلها في كل استيراد، ويبقى ما كتبه صاحب الملف في «الإلزام».
-function importNotes(sheet, noteRows, get, cDept, cName, cReq, cWhy, cState, cDate, cRid) {
-  var values = sheet.getDataRange().getValues();
-  var start = -1;
-  for (var i = 0; i < values.length; i++) if (norm(values[i][0]) === norm(MARK)) { start = i; break; }
-
-  // ما كتبه بيده في «الإلزام» (العمود 5) على ملاحظات الاستيراد السابق، مفتاحه معرف الطلب (العمود 9)
-  var kept = {};
-  if (start >= 0) {
-    var end = start;
-    for (var j = start + 1; j < values.length; j++) {
-      if (!values[j].join('').trim()) break;           // أول سطر فارغ ينهي الكتلة
-      end = j;
-      if (j === start + 1) continue;                   // سطر العناوين
-      var rid = String(values[j][8] || '').trim(), hard = String(values[j][4] || '').trim();
-      if (rid && hard) kept[rid] = hard;
-    }
-    sheet.deleteRows(start + 1, end - start + 1);
-    values = sheet.getDataRange().getValues();
-  }
-  if (!noteRows.length) return '<b>الملاحظات:</b> لا ملاحظات في الملف؛ أُزيلت الكتلة السابقة إن وُجدت.';
-
-  // آخر سطر غير فارغ + سطر فارغ فاصل
-  var last = 0;
-  for (var k = values.length - 1; k >= 0; k--) if (values[k].join('').trim()) { last = k + 1; break; }
-  var at = last + 2;
-  var block = [[MARK, 'التاريخ: ' + new Date().toISOString().slice(0, 10), '', '', '', '', '', '', ''], NOTE_HEAD];
-  var restored = 0;
-  noteRows.forEach(function (row) {
-    var rid = get(row, cRid); if (kept[rid]) restored++;
-    block.push(['منصة', get(row, cDept), get(row, cName), get(row, cReq), kept[rid] || '', get(row, cWhy), get(row, cState), get(row, cDate), rid]);
-  });
-  if (sheet.getMaxRows() < at + block.length) sheet.insertRowsAfter(sheet.getMaxRows(), at + block.length - sheet.getMaxRows());
-  if (sheet.getMaxColumns() < NOTE_HEAD.length) sheet.insertColumnsAfter(sheet.getMaxColumns(), NOTE_HEAD.length - sheet.getMaxColumns());
-  sheet.getRange(at, 1, block.length, NOTE_HEAD.length).setValues(block);
-  sheet.getRange(at, 1, 1, NOTE_HEAD.length).setFontWeight('bold');
-  return '<b>الملاحظات:</b> كُتبت ' + noteRows.length + ' ملاحظة تحت عنوان «' + MARK + '» بدءاً من الصف ' + at +
-    (restored ? '، وأُعيد «الإلزام» الذي كتبته لـ' + restored + ' منها.' : '.');
 }
 
 function uniq(a) { var s = {}; return a.filter(function (x) { if (s[x]) return false; s[x] = 1; return true; }); }

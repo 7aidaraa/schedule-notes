@@ -246,7 +246,7 @@ Deno.serve(async (req) => {
   if (action === "note") {
     // The admin's note is the request's constraint: saving it files it under «قيود الجدول» and marks the request done.
     const note = str(body.note, 3000);
-    const { data: r } = await db.from("requests").select("name,department").eq("id", id).maybeSingle();
+    const { data: r } = await db.from("requests").select("name,department,reason").eq("id", id).maybeSingle();
     if (!r) return fail("الطلب غير موجود", 404);
     const { error } = await db.from("requests").update(note ? { note, done: true } : { note }).eq("id", id);
     if (error) return fail("تعذر الحفظ", 500);
@@ -257,12 +257,12 @@ Deno.serve(async (req) => {
       // Edited text needs checking again.
       if (old.text !== note) ({ error: e2 } = await db.from("constraints").update({ text: note, checked: false }).eq("id", old.id));
     } else {
-      ({ error: e2 } = await db.from("constraints").insert({ section: "من الطلبات", department: r.department, teacher: r.name, text: note, request_id: id }));
+      ({ error: e2 } = await db.from("constraints").insert({ section: "من الطلبات", scope: "فردي", mode: "يدوي", department: r.department, teacher: r.name, text: note, reason: r.reason ?? "", request_id: id }));
     }
     return e2 ? fail("حُفظ في الطلب وتعذر نقله إلى القيود", 500) : json({ ok: true, done: !!note });
   }
   if (action === "rules") {
-    const { data, error } = await db.from("constraints").select("id,section,department,teacher,text,level,checked,request_id").order("pos").order("id");
+    const { data, error } = await db.from("constraints").select("id,pos,section,scope,mode,department,teacher,text,level,reason,sheet_how,sheet_tip,checked,request_id").order("pos").order("id");
     return error ? fail("تعذر جلب القيود", 500) : json({ rows: data });
   }
   if (action === "rule_check") {
@@ -271,7 +271,10 @@ Deno.serve(async (req) => {
   }
   if (action === "rule_save") {
     // Edit (id) or add (section) a constraint. A request's constraint keeps that request's field in step.
-    const f = { department: str(body.department, 80), teacher: str(body.teacher, 200), text: str(body.text, 3000), level: str(body.level, 40) };
+    // The list is ordered on the page from scope, mode, department and teacher; pos only breaks ties.
+    const f = { department: str(body.department, 80), teacher: str(body.teacher, 200), text: str(body.text, 3000), level: str(body.level, 40),
+      scope: body.scope === "عام" ? "عام" : "فردي", mode: body.mode === "آلي" ? "آلي" : "يدوي",
+      reason: str(body.reason, 3000), sheet_how: str(body.sheet_how, 5000), sheet_tip: str(body.sheet_tip, 5000) };
     if (!f.text) return fail("نص القيد مطلوب");
     if (body.id) {
       const { data: old } = await db.from("constraints").select("text,request_id").eq("id", Number(body.id)).maybeSingle();

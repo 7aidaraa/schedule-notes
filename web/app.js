@@ -289,57 +289,89 @@ $('tabBook').onclick = () => tab('book');
 $('tabAdd').onclick = () => tab('add');
 $('tabRules').onclick = () => tab('rules');
 
-// ---- «قيود الجدول»: tick each constraint after checking the exported timetable; clear all for the next round ----
+// ---- «القيود»: one list the page orders itself; tick each constraint after checking the exported timetable ----
+// Order: general automatic, general manual, then per department (the sheet's column order), the whole department
+// before its teachers, each teacher's constraints together (automatic before manual, hard before soft).
 let RULES = null;
-const SECTIONS = ['الآلي العام', 'الآلي الفردي', 'اليدوي العام', 'اليدوي الفردي', 'مسودة', 'من الطلبات'];
+const DEPT_ORDER = ['التربية الإسلامية', 'اللغة العربية', 'اللغة الإنجليزية', 'اللغة الفرنسية', 'الرياضيات', 'الفيزياء والكيمياء',
+  'الأحياء والجيولوجيا', 'الاجتماعيات', 'الحاسوب', 'التربية البدنية', 'التربية الموسيقية', 'الفنية والموسيقية', 'التربية الفنية', 'التجاري', 'المكتبات', 'الدراسات العملية'];
+// Older or shorthand department names in the sheet's list → the platform department they sort with.
+const DEPT_ALIAS = { 'الجغرافيا والتاريخ': 'الاجتماعيات', 'العلوم الفلسفية': 'الاجتماعيات', 'فلسفه': 'الاجتماعيات', 'فلسفة': 'الاجتماعيات', 'تاريخ': 'الاجتماعيات',
+  'انجليزي': 'اللغة الإنجليزية', 'اسلامية': 'التربية الإسلامية', 'كيمياء': 'الفيزياء والكيمياء', 'فيزياء': 'الفيزياء والكيمياء' };
+const LEVELS = ['صلب', 'لازم', 'ثابت', 'صلب + ربط مرن', 'مرن', 'مُفضَّل', 'ربط مرن', 'للعلم', 'معطَّل'];
+const strength = l => /صلب|لازم|ثابت/.test(l || '') ? 'hard' : /مرن|مفض|مُفضَّل/.test(l || '') ? 'soft' : '';
+const deptRank = d => { const k = DEPT_ALIAS[(d || '').split('+')[0].trim()] || d; const i = DEPT_ORDER.indexOf(k); return i < 0 ? 99 : i; };
+const WHOLE = /^(كل القسم|—|-)?$/;
+function teacherKey(x) {
+  const t = (x.teacher || '').trim();
+  if (WHOLE.test(t)) return '';
+  const hit = TEACHERS.find(y => y.name === t || y.nick === t);
+  return hit ? hit.name : t;
+}
+function ruleOrder(rows) {
+  const k = x => {
+    const g = x.scope === 'عام' ? (x.mode === 'آلي' ? 0 : 1) : 2;
+    if (g < 2) return [g, 0, '', 0, 0, x.pos ?? 0, x.id];
+    const tk = teacherKey(x);
+    return [2, deptRank(x.department), (tk ? '1' : '0') + tk, x.mode === 'آلي' ? 0 : 1, { hard: 0, soft: 1 }[strength(x.level)] ?? 2, x.pos ?? 0, x.id];
+  };
+  return rows.map(x => [k(x), x]).sort((p, q) => { for (let i = 0; i < p[0].length; i++) { const a = p[0][i], b = q[0][i]; if (a !== b) return typeof a === 'string' ? a.localeCompare(b, 'ar') : a - b; } return 0; }).map(p => p[1]);
+}
+// Pale orange: individual hard · pale red: general hard · pale green: soft.
+const ruleColor = x => { const s = strength(x.level); return s === 'soft' ? 'soft' : s === 'hard' ? (x.scope === 'عام' ? 'hardAll' : 'hardOne') : ''; };
 async function loadRules() {
   $('rulesMsg').textContent = 'جارٍ التحميل...';
   try { RULES = (await call('rules')).rows; renderRules(); }
   catch (e) { $('rulesMsg').textContent = e; }
 }
 $('rulesRefresh').onclick = loadRules;
-// Edit mode: ✏️ edit, 🗑️ delete (two taps), ⬆️⬇️ order within the group, + add; ticking is off meanwhile.
-let EDIT = false, EDITING = null, delArmed = { id: null, at: 0 };
+let EDIT = false, EDITING = null, delArmed = { id: null, at: 0 }, OPEN = {};
 $('rulesEdit').onclick = () => { EDIT = !EDIT; EDITING = null; $('rulesEdit').textContent = EDIT ? 'إنهاء التحرير' : 'تحرير القائمة'; $('rulesEdit').className = EDIT ? 'warn' : 'ghost'; renderRules(); };
-const meta = x => el('span', { className: 'm' }, [x.department, x.teacher].filter(Boolean).join(' · '), x.level ? el('span', { className: 'lv', textContent: x.level }) : null);
-function ruleForm(x, section) {
+const tag = x => x.section === 'مسودة' ? 'مسودة' : x.request_id || x.section === 'من الطلبات' ? 'من طلب' : '';
+const meta = x => el('span', { className: 'm' }, [x.scope + ' ' + x.mode, x.department, x.teacher].filter(Boolean).join(' · '),
+  x.level ? el('span', { className: 'lv', textContent: x.level }) : null, tag(x) ? el('span', { className: 'lv', textContent: tag(x) }) : null);
+function ruleForm(x) {
+  const sel = (vals, v) => { const s = el('select', {}, ...vals.map(o => el('option', { value: o, textContent: o || '— بلا —' }))); s.value = v; return s; };
   const text = el('textarea', { value: x ? x.text : '', placeholder: 'نص القيد', maxLength: 3000 });
   const dep = el('input', { value: x ? x.department : '', placeholder: 'القسم', maxLength: 80 });
-  const tea = el('input', { value: x ? x.teacher : '', placeholder: 'المعلم', maxLength: 200 });
-  const lvl = el('input', { value: x ? x.level : '', placeholder: 'الإلزام (صلب، مرن، لازم…)', maxLength: 40 });
+  const tea = el('input', { value: x ? x.teacher : '', placeholder: 'المعلم (أو «كل القسم»)', maxLength: 200 });
+  const scope = sel(['فردي', 'عام'], x ? x.scope : 'فردي'), mode = sel(['يدوي', 'آلي'], x ? x.mode : 'يدوي');
+  const lvl = sel(['', ...LEVELS], x && LEVELS.includes(x.level) ? x.level : '');
+  if (x && x.level && !LEVELS.includes(x.level)) lvl.prepend(el('option', { value: x.level, textContent: x.level })), lvl.value = x.level;
+  const why = el('textarea', { value: x ? x.reason : '', placeholder: 'سبب القيد', maxLength: 3000 });
+  const how = el('textarea', { value: x ? x.sheet_how : '', placeholder: 'كيف هو في الشيت (صفوف ورقة «القيود»)', maxLength: 5000 });
+  const tip = el('textarea', { value: x ? x.sheet_tip : '', placeholder: 'المقترح لتقييده في الشيت', maxLength: 5000 });
   const fmsg = el('span', { className: 'meta' });
   const save = el('button', { type: 'button', textContent: 'حفظ' });
   const cancel = el('button', { type: 'button', className: 'ghost', textContent: 'إلغاء' });
   cancel.onclick = () => { EDITING = null; renderRules(); };
   save.onclick = async () => {
-    const f = { text: text.value.trim(), department: dep.value.trim(), teacher: tea.value.trim(), level: lvl.value.trim() };
+    const f = { text: text.value.trim(), department: dep.value.trim(), teacher: tea.value.trim(), level: lvl.value, scope: scope.value, mode: mode.value,
+      reason: why.value.trim(), sheet_how: how.value.trim(), sheet_tip: tip.value.trim() };
     if (!f.text) { fmsg.textContent = 'نص القيد مطلوب'; return; }
     save.disabled = true;
     try {
-      const o = await call('rule_save', x ? { id: x.id, ...f } : { section, ...f });
+      const o = await call('rule_save', x ? { id: x.id, ...f } : { section: 'مضاف', ...f });
       if (x) {
         if (x.text !== f.text) x.checked = false;
         Object.assign(x, f);
         const r = x.request_id && ROWS.find(r => r.id === x.request_id); if (r) r.note = f.text;
-      } else RULES.push({ id: o.id, section, checked: false, request_id: null, ...f });
+      } else RULES.push({ id: o.id, section: 'مضاف', checked: false, request_id: null, pos: 1e9, ...f });
       EDITING = null; renderRules();
     } catch (e) { fmsg.textContent = e; save.disabled = false; }
   };
-  return el('div', { className: 'ruleForm' }, text, el('div', { className: 'ruleFields' }, dep, tea, lvl), el('div', { className: 'row' }, save, cancel, fmsg));
+  const lab = (t, n) => el('label', { className: 'mini' }, t, n);
+  return el('div', { className: 'ruleForm' }, text,
+    el('div', { className: 'ruleFields' }, lab('النطاق', scope), lab('النوع', mode), lab('الإلزام', lvl)),
+    el('div', { className: 'ruleFields two' }, dep, tea), why, how, tip,
+    el('div', { className: 'row' }, save, cancel, fmsg));
 }
-async function moveRule(x, d) {
-  const list = RULES.filter(y => y.section === x.section), i = list.indexOf(x), j = i + d;
-  if (j < 0 || j >= list.length) return;
-  [list[i], list[j]] = [list[j], list[i]];
-  RULES = [...RULES.filter(y => y.section !== x.section), ...list];
-  renderRules();
-  try { await call('rules_order', { ids: list.map(y => y.id) }); }
-  catch (e) { $('rulesMsg').textContent = e; loadRules(); }
-}
-function ruleItem(x, i, list) {
+function ruleItem(x) {
+  if (EDIT && EDITING === x.id) return ruleForm(x);
+  const ib = (t, label, fn) => { const b = el('button', { type: 'button', className: 'ib', textContent: t, title: label, ariaLabel: label }); b.onclick = fn; return b; };
+  const toggle = k => () => { OPEN[x.id] = OPEN[x.id] === k ? null : k; renderRules(); };
+  let tools;
   if (EDIT) {
-    if (EDITING === x.id) return ruleForm(x);
-    const ib = (t, label, fn, dis) => { const b = el('button', { type: 'button', className: 'ib', textContent: t, title: label, ariaLabel: label, disabled: !!dis }); b.onclick = fn; return b; };
     const armed = delArmed.id === x.id && Date.now() - delArmed.at < 4000;
     const del = ib(armed ? 'تأكيد الحذف' : '🗑️', 'حذف', async () => {
       if (!(delArmed.id === x.id && Date.now() - delArmed.at < 4000)) {
@@ -356,37 +388,43 @@ function ruleItem(x, i, list) {
       } catch (e) { $('rulesMsg').textContent = e; }
     });
     if (armed) del.className = 'ib warn';
-    return el('div', { className: 'rule editing' },
-      el('span', {}, el('span', { className: 't', textContent: x.text }), meta(x)),
-      el('span', { className: 'tools' },
-        ib('⬆️', 'إلى الأعلى', () => moveRule(x, -1), i === 0), ib('⬇️', 'إلى الأسفل', () => moveRule(x, 1), i === list.length - 1),
-        ib('✏️', 'تعديل', () => { EDITING = x.id; renderRules(); }), del));
-  }
-  const b = el('button', { type: 'button', className: 'rule' + (x.checked ? ' on' : '') },
+    tools = [ib('✏️', 'تعديل', () => { EDITING = x.id; renderRules(); }), del];
+  } else tools = [ib('⁉️', 'سبب القيد', toggle('why')), ib('⛓️‍💥', 'في الشيت والمقترح', toggle('how'))];
+  const check = el('button', { type: 'button', className: 'tick', disabled: EDIT },
     el('span', { className: 'box', textContent: x.checked ? '✓' : '' }),
     el('span', {}, el('span', { className: 't', textContent: x.text }), meta(x)));
-  b.onclick = async () => {
+  check.onclick = async () => {
     x.checked = !x.checked; renderRules();
     try { await call('rule_check', { id: x.id, checked: x.checked }); }
     catch (e) { x.checked = !x.checked; renderRules(); $('rulesMsg').textContent = e; }
   };
-  return b;
+  const panel = OPEN[x.id] === 'why'
+    ? el('div', { className: 'panel' }, el('b', { textContent: 'السبب: ' }), x.reason || 'لا أعلم')
+    : OPEN[x.id] === 'how'
+      ? el('div', { className: 'panel' }, el('b', { textContent: 'كيف هو في الشيت:' }), el('div', { className: 'pre', textContent: x.sheet_how || 'لم يُكتب بعد' }),
+        el('b', { textContent: 'المقترح:' }), el('div', { className: 'pre', textContent: x.sheet_tip || 'لم يُكتب بعد' }))
+      : null;
+  return el('div', { className: 'rule ' + ruleColor(x) + (x.checked ? ' on' : '') }, el('div', { className: 'ruleRow' }, check, el('span', { className: 'tools' }, ...tools)), panel);
 }
 function renderRules() {
-  const rows = RULES || [];
+  const rows = ruleOrder(RULES || []);
   const done = rows.filter(x => x.checked).length;
   $('rulesMsg').textContent = rows.length ? 'مستوفى ' + done + ' من ' + rows.length + (done === rows.length ? ' — اكتملت ✓' : '') : '';
-  const secs = [...SECTIONS, ...new Set(rows.map(x => x.section).filter(s => !SECTIONS.includes(s)))];
-  const cards = secs.map(s => {
-    const list = rows.filter(x => x.section === s);
-    if (!list.length && !EDIT) return null;
-    const n = list.filter(x => x.checked).length;
-    const add = EDIT && (EDITING === 'new:' + s ? ruleForm(null, s)
-      : Object.assign(el('button', { type: 'button', className: 'ghost addRule', textContent: '+ إضافة قيد' }), { onclick: () => { EDITING = 'new:' + s; renderRules(); } }));
-    return el('div', { className: 'card' }, el('h2', { textContent: s + ' (' + n + '/' + list.length + ')' }), ...list.map(ruleItem), add || null);
-  }).filter(Boolean);
-  $('rulesList').replaceChildren(...(cards.length ? cards : [el('div', { className: 'card meta', textContent: 'لا توجد قيود بعد' })]));
+  const add = EDIT && (EDITING === 'new' ? ruleForm(null)
+    : Object.assign(el('button', { type: 'button', className: 'ghost addRule', textContent: '+ إضافة قيد' }), { onclick: () => { EDITING = 'new'; renderRules(); } }));
+  $('rulesList').replaceChildren(el('div', { className: 'card rules' }, ...(rows.length ? rows.map(ruleItem) : [el('div', { className: 'meta', textContent: 'لا توجد قيود بعد' })]), add || null));
 }
+// The list for the sheet «القيود بلغة عرفية (حيدر)», in the platform's order; the sheet's importer replaces the whole sheet with it.
+const RULE_HEAD = ['م', 'النطاق', 'النوع', 'القسم', 'المعلم', 'القيد', 'الإلزام', 'السبب', 'في الشيت', 'المقترح', 'المصدر'];
+$('rulesCsv').onclick = async () => {
+  if (!RULES) await loadRules();
+  const rows = ruleOrder(RULES || []).map((x, i) => [i + 1, x.scope, x.mode, x.department, x.teacher, x.text, x.level, x.reason, x.sheet_how, x.sheet_tip, tag(x) || 'المنصة']);
+  const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+  const csv = '﻿' + [RULE_HEAD, ...rows].map(r => r.map(q).join(',')).join('\r\n');
+  const a = el('a', { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })), download: 'قيود_المنصة_' + new Date().toISOString().slice(0, 10) + '.csv' });
+  document.body.append(a); a.click(); a.remove();
+  $('rulesMsg').textContent = rows.length + ' قيداً في الملف';
+};
 // Two taps (no confirm(): in-app browsers block it).
 let resetArmed = 0;
 $('rulesReset').onclick = async () => {
@@ -650,15 +688,8 @@ function showBudgetState() {
 // Subject names as the sheet's «التوزيع» columns spell them; single-subject departments use the department name.
 const SHEET_SUBJECT = { 'تاريخ الكويت': 'الاجتماعيات', 'اختيار حر': 'اللغة الفرنسية (اختيار حرّ)' };
 const sheetClass = c => { const [g, n] = c.split('-'); return g === '10' ? '10/' + n : g.slice(0, 2) + (g.endsWith('a') ? 'د' : 'ع') + n; };
-// Teachers' schedule notes (request + reason) travel in the same file as «قيد» rows; the sheet keeps them
-// in «القيود بلغة عرفية» under a heading of their own so the owner can filter them.
-const HEADERS = ['المعرف', 'اسم الشهرة', 'الاسم الثلاثي', 'القسم', 'الصف', 'المادة', 'الحصص', 'السجل', 'القيد', 'السبب', 'الحالة', 'التاريخ', 'معرف الطلب'];
-function noteRows() {
-  return ROWS.map(r => {
-    const tt = TEACHERS.find(x => x.name === r.name) || {};
-    return [tt.uid || '', tt.nick || r.name, r.name, tt.department || r.department, '', '', '', 'قيد', r.request, r.reason, r.done ? 'تم' : 'جديد', new Date(r.created_at).toISOString().slice(0, 10), r.id];
-  });
-}
+// Constraints (teachers' requests included) travel in their own file from «القيود» → «تصدير CSV للشيت».
+const HEADERS = ['المعرف', 'اسم الشهرة', 'الاسم الثلاثي', 'القسم', 'الصف', 'المادة', 'الحصص'];
 function exportRows() {
   const rows = [];
   for (const b of SCHOOL) {
@@ -668,22 +699,21 @@ function exportRows() {
       for (const c of CLASSES) {
         if (!(c in t.cells)) continue;
         for (const p of partsOf(b.department, t, c))
-          rows.push([tt.uid || '', tt.nick || t.name, t.name, b.department, sheetClass(c), p.col, p.h, 'توزيع', '', '', '', '', '']);
+          rows.push([tt.uid || '', tt.nick || t.name, t.name, b.department, sheetClass(c), p.col, p.h]);
       }
     }
   }
   return rows;
 }
-$('schoolCsv').onclick = async () => {
-  if (!ROWS.length) { try { ROWS = (await call('list')).rows; } catch (e) { $('schoolMsg').textContent = e; return; } }
-  const dist = exportRows(), notes = noteRows(), rows = [...dist, ...notes];
+$('schoolCsv').onclick = () => {
+  const rows = exportRows();
   if (!rows.length) { $('schoolMsg').textContent = 'لا توجد ميزانيات للتصدير'; return; }
   const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
   const csv = '\uFEFF' + [HEADERS, ...rows].map(r => r.map(q).join(',')).join('\r\n');
   const a = el('a', { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })), download: 'ميزانية_المنصة_' + new Date().toISOString().slice(0, 10) + '.csv' });
   document.body.append(a); a.click(); a.remove();
-  const blank = dist.filter(r => !r[5]).length;
-  $('schoolMsg').textContent = dist.length + ' سطر توزيع لـ' + new Set(dist.map(r => r[2])).size + ' معلماً، و' + notes.length + ' ملاحظة' + (blank ? ' — ' + blank + ' بلا مادة' : '');
+  const blank = rows.filter(r => !r[5]).length;
+  $('schoolMsg').textContent = rows.length + ' سطر توزيع لـ' + new Set(rows.map(r => r[2])).size + ' معلماً' + (blank ? ' — ' + blank + ' بلا مادة' : '');
 };
 
 // ---- «ميزانية كل الأقسام»: the budgets as the sheet's «التوزيع» — class × subject, one teacher per cell ----
@@ -802,16 +832,15 @@ function renderSchool() {
   });
   const td = (v, cls) => el('td', { className: cls || '', textContent: v === null || v === undefined ? '—' : v });
   const table = el('table', { className: 'bsum' },
-    el('thead', {}, el('tr', {}, ...['القسم', 'رئيس القسم', 'المطلوب', 'الموجود', 'العجز', 'الحصص', 'آخر تحديث', ''].map(h => el('th', { textContent: h })))),
+    el('thead', {}, el('tr', {}, ...['القسم', 'رئيس القسم', 'آخر تحديث', ''].map(h => el('th', { textContent: h })))),
     el('tbody', {}, ...rows.map(r => {
       const edit = el('button', { className: 'ghost noprint', textContent: 'تعديل', style: 'padding:4px 12px' });
       edit.onclick = () => openBudget(r.dp, 'المدير', () => { $('admin').classList.remove('hidden'); loadSchool(); });
       const view = el('button', { className: 'ghost noprint', textContent: 'معاينة', style: 'padding:4px 12px' });
       view.onclick = () => showDetail([r]);
-      return el('tr', {}, td(r.dp), td(r.head), td(r.req), td(r.have), td(r.gap, r.gap > 0 ? 'neg' : ''), td(r.periods),
+      return el('tr', {}, td(r.dp), td(r.head),
         td(r.b ? new Date(r.b.updated_at).toLocaleDateString('ar-KW') + ' · ' + (r.b.updated_by || '') : 'لم تُدخل بعد'), el('td', {}, el('div', { className: 'row', style: 'margin:0;flex-wrap:nowrap;justify-content:center' }, r.b ? view : null, edit)));
-    }),
-    el('tr', { className: 'tot' }, td('المجموع'), td(''), td(sum(rows, r => r.req || 0)), td(sum(rows, r => r.have)), td(sum(rows, r => r.gap > 0 ? r.gap : 0)), td(sum(rows, r => r.periods)), td(''), td(''))));
+    })));
   $('schoolSummary').replaceChildren(el('h2', { textContent: 'ميزانية المدرسة ' }), el('div', { className: 'meta', textContent: rows.filter(r => r.b).length + ' من ' + rows.length + ' أقسام أدخلت ميزانيتها' }), el('div', { className: 'wrap' }, table));
   SCHOOL_ROWS = rows.filter(r => r.b);
   $('schoolDetail').replaceChildren(...SCHOOL_ROWS.map(r => deptTable(r)));
