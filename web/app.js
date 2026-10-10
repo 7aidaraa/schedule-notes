@@ -37,7 +37,7 @@ $('loginBtn').onclick = async () => {
     ROLE = role;
     if (role === 'admin') $('whoTitle').textContent = 'بيانات المعلم';
     setupForm(teachers || []);
-    if (role === 'admin') { $('teacher').classList.add('hidden'); loadList(); }
+    if (role === 'admin') tab('school'); // the admin lands on the budgets
   } catch (e) { msg($('loginMsg'), e, 'err'); }
   btn.disabled = false;
 };
