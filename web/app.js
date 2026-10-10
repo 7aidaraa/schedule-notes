@@ -35,8 +35,10 @@ $('loginBtn').onclick = async () => {
   try {
     const { role, teachers } = await call('login');
     $('login').classList.add('hidden');
-    $(role).classList.remove('hidden');
+    $(role === 'admin' ? 'admin' : 'teacher').classList.remove('hidden');
     ROLE = role;
+    // Heads edit their budget outside the developer's tabs.
+    if (role === 'head') document.querySelector('main').append($('bedit'));
     if (role === 'admin') $('whoTitle').textContent = 'بيانات المعلم';
     setupForm(teachers || []);
     if (role === 'admin') tab('school'); // the admin lands on the budgets
@@ -106,17 +108,17 @@ function setupForm(teachers) {
   if (!$('items').children.length) addItem();
 }
 // The role is known from the staff directory: heads of department get the budget field.
-// Budgets live only in the developer's «الميزانيات» tab for now (2026-10-10); true brings the heads' card back.
-const BUDGET_FOR_HEADS = false;
+// Heads of department see their budget only when signed in with the heads' password (role «head»).
+const budgetForHeads = () => ROLE === 'head';
 const person = () => TEACHERS.find(t => t.name === $('name').value.trim());
 const isHead = () => !!(person() || {}).is_head;
 function showRole() {
   const t = person();
   $('roleTag').replaceChildren(...(t ? [t.is_head ? el('b', { textContent: 'رئيس قسم ' + t.department }) : 'معلم'] : []));
-  const head = BUDGET_FOR_HEADS && isHead();
+  const head = budgetForHeads() && isHead();
   $('budget').classList.toggle('hidden', !head);
   if (!head) { FILES = []; showFiles(); }
-  if (BUDGET_FOR_HEADS) showBudgetState();
+  if (budgetForHeads()) showBudgetState();
 }
 
 // Each request is its own card with its own reason (and attachment for heads of department).

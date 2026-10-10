@@ -34,12 +34,15 @@ async function sha256(s: string) {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function roleOf(pass: string): Promise<"admin" | "teacher" | null> {
+// Three passwords: the developer (admin), heads of department (head: requests + their budget), teachers (requests only).
+async function roleOf(pass: string): Promise<"admin" | "head" | "teacher" | null> {
   const { data } = await db.from("settings").select("key,value");
   const s = Object.fromEntries((data ?? []).map((r) => [r.key, r.value]));
   pass = str(pass, 200);
   if (!pass) return null;
-  if ((await sha256(pass)) === s.admin_pass_sha256) return "admin";
+  const hash = await sha256(pass);
+  if (hash === s.admin_pass_sha256) return "admin";
+  if (s.head_pass_sha256 && hash === s.head_pass_sha256) return "head";
   if (pass === s.teacher_pass) return "teacher";
   return null;
 }
@@ -78,9 +81,11 @@ function cleanBudget(d: Record<string, any>) {
   }).filter((t: any) => t.name);
   return { periods, required: int(d?.required, 99), note: str(d?.note, 1000), teachers };
 }
-// The admin edits any department; a head of department edits their own (the directory decides who is head).
+// The admin edits any department; a head of department, signed in with the heads' password, edits their own
+// (the directory decides who is head). The teachers' password opens no budget.
 async function canEditBudget(role: string, name: string, department: string) {
   if (role === "admin") return true;
+  if (role !== "head") return false;
   const { data } = await db.from("teachers").select("is_head").eq("name", name).eq("department", department).maybeSingle();
   return !!data?.is_head;
 }
@@ -165,7 +170,7 @@ Deno.serve(async (req) => {
     const kind = staff?.is_head ? "head" : "teacher";
     // `file` is the single-file shape the previous page sent.
     const incoming: any[] = Array.isArray(body.files) ? body.files : body.file ? [body.file] : [];
-    if (incoming.length && kind !== "head") return fail("ميزانية القسم يرفعها رئيس القسم فقط");
+    if (incoming.length && (kind !== "head" || role === "teacher")) return fail("ميزانية القسم يرفعها رئيس القسم فقط");
     if (incoming.length > MAX_FILES) return fail(`الحد ${MAX_FILES} ملفات للطلب`);
 
     const ready: { ext: string; name: string; type: string; bytes: Uint8Array }[] = [];
