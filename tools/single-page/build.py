@@ -7,7 +7,9 @@ import re
 import sys
 
 repo, data_path, backend_path, out = sys.argv[1:5]
-W = repo + '/web/'
+# The platform no longer carries the budgets (2026-10-11): the code comes from the skill's copy, the logos from here.
+W = repo + '/skills/school-budgets/assets/code/web/'
+L = repo + '/tools/single-page/assets/'
 read = lambda p: open(p, encoding='utf-8').read()
 b64 = lambda p, mime: 'data:' + mime + ';base64,' + base64.b64encode(open(p, 'rb').read()).decode()
 # Inline scripts must not close their own <script> tag.
@@ -15,7 +17,7 @@ js = lambda s: s.replace('</script', '<\\/script')
 
 data = json.load(open(data_path, encoding='utf-8'))
 school = data['school']
-school['form']['logos'] = {'ministry': b64(W + 'assets/moe.jpeg', 'image/jpeg'), 'school': b64(W + 'assets/school.png', 'image/png')}
+school['form']['logos'] = {'ministry': b64(L + 'moe.jpeg', 'image/jpeg'), 'school': b64(L + 'school.png', 'image/png')}
 
 html = read(W + 'index.html')
 html = html.replace('url(assets/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2)', 'url(' + b64(W + 'assets/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2', 'font/woff2') + ')')

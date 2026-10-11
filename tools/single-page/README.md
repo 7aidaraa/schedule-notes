@@ -1,6 +1,6 @@
 # صفحة الميزانيات في ملف HTML واحد
 
-تبني من `web/` ومن ملف البيانات (`school-budgets-data.json`، صيغة مهارة school-budgets) صفحة واحدة مكتفية بنفسها:
+تبني من نسخة كود المهارة (`skills/school-budgets/assets/code/web/`، فالميزانيات حُذفت من المنصة 2026-10-11) والشعارين في `tools/single-page/assets/` ومن ملف البيانات (`school-budgets-data.json`، صيغة مهارة school-budgets) صفحة واحدة مكتفية بنفسها:
 الكود والمكتبات والخط والشعاران والبيانات كلها داخل الملف.
 
 ```bash

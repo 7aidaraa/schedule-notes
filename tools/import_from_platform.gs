@@ -13,16 +13,18 @@
  *    «التوزيع»: يمسح فقط أعمدة المواد التي وردت في الملف، ثم يضع اسم الشهرة في خانة (الصف، المادة).
  *    الأعمدة التي لم ترد (مثل التجاري) لا تُمس. «حمل المعلمين» لا يُكتب فيه شيء.
  *
- * 2) ملف القيود «قيود_المنصة_*.csv» — من زر «تصدير CSV للشيت» في تبويب القيود:
- *      م, النطاق, النوع, القسم, المعلم, القيد, الإلزام, السبب, في الشيت, المقترح, المصدر
- *    «القيود بلغة عرفية (حيدر)»: تُمسح الورقة كلها ثم تُكتب القائمة بترتيب المنصة وألوانها
- *    (برتقالي باهت: فردي صلب · أحمر باهت: عام صلب · أخضر باهت: مرن). لا تُمس ورقة «القيود» التي يقرؤها البرنامج.
+ * 2) ملف القيود «قيود_المنصة_*.csv» — من زر «تصدير CSV للشيت» في تبويب القيود (2026-10-11، بلفظ ورقة «القيود»):
+ *      م, نوع الهدف, الهدف, نوع القيد, النمط, القيمة, مستوى الإلزام, الوزن, مفعَّل, ملاحظة, المدة, الوسم, القسم, شرح النوع المقترح
+ *    «القيود بلغة عرفية (حيدر)»: تُمسح الورقة كلها ثم تُكتب القائمة بترتيب المنصة (دائمة، شبه دائمة، مؤقتة) وألوانها
+ *    (برتقالي باهت: صلب لمعلّم · أحمر باهت: صلب لمادّة أو دور · أخضر باهت: مرن · رمادي: غير مفعَّل).
+ *    الوسم: ✅ مسجّل · ⏸️ خامل · ⬜ غير مسجّل (يُكتب صفه في «القيود») · 🆕 نوع مقترح (نوع يضاف إلى البرنامج).
+ *    لا تُمس ورقة «القيود» التي يقرؤها البرنامج.
  *
  * قبل أول استيراد: «ملف ← سجلّ الإصدارات» يحفظ نسخة يُرجع إليها.
  */
 
 var NOTES_SHEET = 'القيود بلغة عرفية (حيدر)';
-var COLORS = { hardOne: '#fdebd6', hardAll: '#fadcdc', soft: '#e2f4e8' };
+var COLORS = { hardOne: '#fdebd6', hardAll: '#fadcdc', soft: '#e2f4e8', off: '#eceff2' };
 
 function onOpenImport() {
   SpreadsheetApp.getUi().createMenu('المنصة').addItem('استيراد من ملف CSV (الميزانية أو القيود)', 'importFromPlatform').addToUi();
@@ -50,7 +52,7 @@ function importCsvText(text) {
   var get = function (row, i) { return i >= 0 ? String(row[i] == null ? '' : row[i]).trim() : ''; };
   rows = rows.filter(function (row) { return row.join('').trim(); });
 
-  if (head.indexOf(norm('النطاق')) >= 0) {
+  if (head.indexOf(norm('نوع القيد')) >= 0) {
     var notes = ss.getSheetByName(NOTES_SHEET);
     if (!notes) throw new Error('لم أجد ورقة «' + NOTES_SHEET + '»');
     return importConstraints(notes, rows, head, get);
@@ -151,9 +153,9 @@ function importStaff(staff, rows, get, cUid, cName, cClass, cSubj, cHours, cCivi
 
 // «القيود بلغة عرفية»: تُمسح الورقة كلها، ثم العناوين والقائمة بترتيب المنصة وألوانها.
 function importConstraints(sheet, rows, head, get) {
-  var cols = ['م', 'النطاق', 'النوع', 'القسم', 'المعلم', 'القيد', 'الإلزام', 'السبب', 'في الشيت', 'المقترح', 'المصدر'];
+  var cols = ['م', 'نوع الهدف', 'الهدف', 'نوع القيد', 'النمط', 'القيمة', 'مستوى الإلزام', 'الوزن', 'مفعَّل', 'ملاحظة', 'المدة', 'الوسم', 'القسم', 'شرح النوع المقترح'];
   var idx = cols.map(function (c) { return head.indexOf(norm(c)); });
-  if (idx[5] < 0) throw new Error('عمود «القيد» غير موجود في الملف');
+  if (idx[2] < 0 || idx[3] < 0) throw new Error('عمودا «الهدف» و«نوع القيد» غير موجودين في الملف');
   var out = [cols].concat(rows.map(function (row) { return idx.map(function (i) { return get(row, i); }); }));
   sheet.clear();
   if (sheet.getMaxColumns() < cols.length) sheet.insertColumnsAfter(sheet.getMaxColumns(), cols.length - sheet.getMaxColumns());
@@ -162,12 +164,14 @@ function importConstraints(sheet, rows, head, get) {
   sheet.getRange(1, 1, 1, cols.length).setFontWeight('bold').setBackground('#eef3f7');
   sheet.setFrozenRows(1);
   var bg = out.slice(1).map(function (r) {
-    var lvl = r[6], scope = r[1], hard = /صلب|لازم|ثابت/.test(lvl), soft = !hard && /مرن|مفض|مُفضَّل/.test(lvl);
-    var c = soft ? COLORS.soft : hard ? (scope === 'عام' ? COLORS.hardAll : COLORS.hardOne) : null;
+    var off = norm(r[8]) === norm('لا'), hard = /صلب/.test(r[6]), soft = /مرن/.test(r[6]);
+    var c = off ? COLORS.off : soft ? COLORS.soft : hard ? (norm(r[1]) === norm('معلّم') ? COLORS.hardOne : COLORS.hardAll) : null;
     return cols.map(function () { return c; });
   });
   if (bg.length) sheet.getRange(2, 1, bg.length, cols.length).setBackgrounds(bg);
-  return '<b>القيود:</b> مُسحت ورقة «' + NOTES_SHEET + '» وكُتب فيها ' + rows.length + ' قيداً بترتيب المنصة.';
+  var waiting = out.slice(1).filter(function (r) { return /غير مسج|نوع مقترح/.test(r[11]); }).length;
+  return '<b>القيود:</b> مُسحت ورقة «' + NOTES_SHEET + '» وكُتب فيها ' + rows.length + ' قيداً بترتيب المنصة' +
+    (waiting ? '، منها ' + waiting + ' تنتظر التسجيل في ورقة «القيود» (⬜ أو 🆕).' : '.');
 }
 
 function importDistribution(dist, distRows, nickOf, get, cClass, cSubj, cName) {
