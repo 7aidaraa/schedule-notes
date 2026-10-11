@@ -117,4 +117,6 @@ insert into constraints (id, section, department, text, level, reason, target_ty
   (1103, 'المنصة', 'الاجتماعيات', 'لا حصّة للمادّة في صفّ: مادّة: الجغرافيا — 11د1: 4، 5، 6، 7', 'مرن موزون', 'من قائمة المنصة: في الحصص الأولى', 'مادّة', 'الجغرافيا', 'لا حصّة للمادّة في صفّ', '', '11د1: 4، 5، 6، 7', 50, true, 'دائمة', 'نوع مقترح', null),
   (1104, 'المنصة', 'الحاسوب', 'يوم بلا حصص: مادّة: الحاسوب', 'مرن موزون', 'من قائمة المنصة: يوم فارغ لكل معلم إن أمكن، بلا قيد', 'مادّة', 'الحاسوب', 'يوم بلا حصص', '', '', 10, false, 'دائمة', 'نوع مقترح', null);
 select setval(pg_get_serial_sequence('constraints', 'id'), (select max(id) from constraints));
+-- الطلبات المنجزة الـ11 حُوّلت قيوداً من قبل، ولا مرفقات لها (تحقق 2026-10-11): تُحذف نهائياً (البند ٣).
+delete from requests where done and coalesce(jsonb_array_length(files), 0) = 0 and file_path is null;
 commit;
