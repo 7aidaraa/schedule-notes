@@ -137,7 +137,8 @@ Deno.serve(async (req) => {
 
   // ---- Constraints ----
   if (action === "rules") {
-    const { data, error } = await db.from("constraints").select(RULE_COLS).order("id");
+    // Rows from before the sheet-terms template (no target type) stay in the table, unshown.
+    const { data, error } = await db.from("constraints").select(RULE_COLS).neq("target_type", "").order("id");
     const { data: types, error: e2 } = await db.from("constraint_types").select("name,targets,explain").order("created_at");
     return error || e2 ? fail("تعذر جلب القيود", 500) : json({ rows: data, types });
   }
