@@ -174,7 +174,7 @@ const HELP = `سير المنصة
 ٣. القيود ثلاث صفحات: دائمة، شبه دائمة، مؤقتة.
 ٤. «تصدير CSV للشيت» يُستورد إلى ورقة «القيود بلغة عرفية (حيدر)» فقط.
 ٥. ورقة «القيود» في الشيت لا تكتب فيها المنصة.
-٦. «استيراد قيود الشيت» يحدّث الوسوم: ✅ مسجّل · ⏸️ خامل · ⬜ غير مسجّل · 🆕 نوع مقترح.
+٦. «استيراد قيود الشيت» يحدّث الوسوم: ✅ مسجّل · ⏸️ خامل · ⏳ غير مسجّل · 🆕 نوع مقترح.
 ٧. التحديث: اسحب الشاشة للأسفل.
 
 ملف الشيت إلى المنصة (لمطور الشيت)
@@ -365,7 +365,7 @@ const typeOf = n => n === 'بارامتر' ? PARAM : SHEET_TYPES.find(t => t.n =
   || (TYPES.find(t => t.name === n) && { g: 'مقترحة', n, for: TYPES.find(t => t.name === n).targets.split('،'), f: ['free'], lv: 'choose', h: TYPES.find(t => t.name === n).explain || 'نوع مقترح، لم يُضف إلى الشيت بعد.', proposed: true });
 const isProposed = n => !!TYPES.find(t => t.name === n);
 const DURS = ['دائمة', 'شبه دائمة', 'مؤقتة'];
-const STATE_ICON = { 'مسجّل': '✅', 'خامل': '⏸️', 'غير مسجّل': '⬜', 'نوع مقترح': '🆕' };
+const STATE_ICON = { 'مسجّل': '✅', 'خامل': '⏸️', 'غير مسجّل': '⏳', 'نوع مقترح': '🆕' };
 
 // Values in the sheet's own spelling: «1، 2» · «الخميس: 7» · «الإثنين، الأربعاء».
 const ORD = { 'الأولى': 1, 'الثانية': 2, 'الثالثة': 3, 'الرابعة': 4, 'الخامسة': 5, 'السادسة': 6, 'السابعة': 7, 'الأخيرة': 7 };
@@ -737,7 +737,7 @@ function showReport(total, changed, missing) {
   close.onclick = () => box.classList.add('hidden');
   box.replaceChildren(el('h2', { textContent: 'تقرير استيراد قيود الشيت' }),
     el('div', { textContent: 'في الملف ' + total + ' صفاً · تغيّر وسم ' + changed + ' قيداً.' }),
-    el('div', { className: 'meta', textContent: '✅ مسجّل ' + count('مسجّل') + ' · ⏸️ خامل ' + count('خامل') + ' · ⬜ غير مسجّل ' + count('غير مسجّل') + ' · 🆕 نوع مقترح ' + count('نوع مقترح') }),
+    el('div', { className: 'meta', textContent: '✅ مسجّل ' + count('مسجّل') + ' · ⏸️ خامل ' + count('خامل') + ' · ⏳ غير مسجّل ' + count('غير مسجّل') + ' · 🆕 نوع مقترح ' + count('نوع مقترح') }),
     ...(missing.length ? [el('div', { className: 'field', style: 'margin-top:8px' }, el('b', { textContent: 'في الشيت وليس في المنصة (' + missing.length + '):' })), list] : []),
     el('div', { className: 'row' }, missing.length ? all : null, close));
   box.classList.remove('hidden');
