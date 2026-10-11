@@ -67,7 +67,7 @@ $('loginBtn').onclick = async () => {
     ROLE = o.role; TEACHERS = o.teachers || []; PHONES = o.phones || {};
     $('login').classList.add('hidden');
     $(ROLE === 'admin' ? 'admin' : 'teacher').classList.remove('hidden');
-    if (ROLE === 'admin') { $('helpText').textContent = HELP; tab('rules'); }
+    if (ROLE === 'admin') { $('helpBtn').classList.remove('hidden'); tab('rules'); }
     else setupForm();
   } catch (e) { msg($('loginMsg'), e, 'err'); }
   btn.disabled = false;
@@ -166,16 +166,35 @@ function refresh() { return TAB === 'rules' ? loadRules() : TAB === 'req' ? load
 $('tabRules').onclick = () => tab('rules');
 $('tabReq').onclick = () => tab('req');
 $('tabBook').onclick = () => tab('book');
-$('helpBtn').onclick = () => { $('help').classList.toggle('hidden'); $('helpBtn').classList.toggle('on'); };
+
+// ---- Screens: whatever opens gets the whole page, with «رجوع» (and the phone's back button) to return ----
+let SCREEN_Y = 0;
+const screenOpen = () => !$('screen').classList.contains('hidden');
+function openScreen(title, body) {
+  if (!screenOpen()) { SCREEN_Y = scrollY; history.pushState({ screen: 1 }, ''); }
+  $('admin').classList.add('hidden'); $('screen').classList.remove('hidden');
+  $('scrTitle').textContent = title; $('scrBody').replaceChildren(body);
+  scrollTo(0, 0);
+}
+function closeScreen() { if (screenOpen()) history.back(); }
+addEventListener('popstate', () => {
+  if (!screenOpen()) return;
+  $('screen').classList.add('hidden'); $('scrBody').replaceChildren(); $('admin').classList.remove('hidden');
+  if (TAB === 'rules') renderRules(); else if (TAB === 'req') render(); else renderBook();
+  scrollTo(0, SCREEN_Y);
+});
+$('scrBack').onclick = closeScreen;
+$('helpBtn').onclick = () => openScreen('تعليمات', el('div', { className: 'helpText', textContent: HELP }));
 
 const HELP = `سير المنصة
 ١. المعلم يرسل ملاحظته على الجدول.
 ٢. المطور يحوّلها إلى قيد بـ«حفظ القيد»، فيُحذف الطلب.
 ٣. القيود ثلاث صفحات: دائمة، شبه دائمة، مؤقتة.
-٤. «تصدير CSV للشيت» يُستورد إلى ورقة «القيود بلغة عرفية (حيدر)» فقط.
-٥. ورقة «القيود» في الشيت لا تكتب فيها المنصة.
-٦. «استيراد قيود الشيت» يحدّث الوسوم: ✅ مسجّل · ⏸️ خامل · ⏳ غير مسجّل · 🆕 نوع مقترح.
-٧. التحديث: اسحب الشاشة للأسفل.
+٤. ضغطة على القيد تشطبه، و«رفع الشطب عن الكل» يعيدها. «⋯» يفتح تفاصيله.
+٥. «تصدير CSV» يُستورد إلى ورقة «القيود بلغة عرفية (حيدر)» فقط.
+٦. ورقة «القيود» في الشيت لا تكتب فيها المنصة.
+٧. «استيراد CSV القيود» يحدّث الوسوم: ✅ مسجّل · ⏸️ خامل · ⏳ غير مسجّل · 🆕 نوع مقترح.
+٨. التحديث: اسحب الشاشة للأسفل.
 
 ملف الشيت إلى المنصة (لمطور الشيت)
 - صفوف القسم الثالث من ورقة «القيود» بترتيبها.
@@ -198,7 +217,7 @@ const HELP = `سير المنصة
     if (y0 === null) return;
     y0 = null;
     if (dy > 130) {
-      if (document.querySelector('.builder, .cform')) { ptr.style.height = '0'; toast('احفظ أو ألغِ النموذج المفتوح أولاً', true); return; }
+      if (screenOpen()) { ptr.style.height = '0'; return; }
       ptr.style.height = '40px'; ptr.textContent = 'جارٍ التحديث...';
       await refresh();
     }
@@ -230,16 +249,9 @@ function card(r) {
     el('a', { href: 'tel:+965' + r.phone, textContent: r.phone, dir: 'ltr' })));
   if (filesOf(r).length) c.append(el('div', { className: 'field' }, el('b', { textContent: 'المرفقات:' })), ...filesOf(r).map((f, n) => fileRow(r, f, n)));
   // The request becomes a constraint: saving it deletes the request (and its files) for good.
-  const slot = el('div');
   const conv = el('button', { textContent: 'حوّل إلى قيد', style: 'margin-top:10px' });
-  conv.onclick = () => {
-    conv.classList.add('hidden');
-    slot.replaceChildren(builder({ request: r, onDone: saved => {
-      if (saved) { ROWS = ROWS.filter(x => x !== r); RULES = null; render(); return; }
-      slot.replaceChildren(); conv.classList.remove('hidden');
-    } }));
-  };
-  c.append(conv, slot);
+  conv.onclick = () => openScreen('تحويل الطلب إلى قيد', builder({ request: r, onSaved: () => { ROWS = ROWS.filter(x => x !== r); } }));
+  c.append(conv);
   return c;
 }
 // Rows saved before multi-file support carry a single file in file_*.
@@ -296,7 +308,7 @@ function contactCard(c) {
   const box = el('div', { className: 'card contact' });
   const show = () => {
     const edit = el('button', { type: 'button', className: 'ib', textContent: '✏️', title: 'تعديل' });
-    edit.onclick = () => box.replaceChildren(contactForm(c, show));
+    edit.onclick = () => openScreen('تعديل رقم', contactForm(c));
     const del = delButton('حذف الرقم', async () => { await call('contact_delete', { name: c.name }); BOOK = BOOK.filter(x => x !== c); renderBook(); toast('حُذف ✓'); });
     box.replaceChildren(
       el('div', {}, el('strong', { textContent: nickOf(c.name) }), el('div', { className: 'meta', textContent: c.department || '' })),
@@ -305,28 +317,29 @@ function contactCard(c) {
   show();
   return box;
 }
-function contactForm(c, back) {
+function contactForm(c) {
   const name = el('input', { value: c ? c.name : '', placeholder: 'الاسم', maxLength: 120 });
   const dept = select(depts(), c ? c.department : '', 'القسم');
   const phone = el('input', { value: c ? c.phone : '', placeholder: '9xxxxxxx', type: 'tel', inputMode: 'numeric', dir: 'ltr', maxLength: 16 });
   const save = el('button', { type: 'button', textContent: 'حفظ' });
   const cancel = el('button', { type: 'button', className: 'ghost', textContent: 'إلغاء' });
   const fmsg = el('span', { className: 'meta' });
-  cancel.onclick = back;
+  cancel.onclick = closeScreen;
   save.onclick = async () => {
     const f = { old: c ? c.name : '', name: name.value.trim(), department: dept.value, phone: digits(phone.value).replace(/[\s-]/g, '') };
     save.disabled = true;
     try {
       await call('contact_save', f);
       toast('حُفظ ✓');
-      if (c) { Object.assign(c, { name: f.name, department: f.department, phone: f.phone.replace(/^(\+|00)965/, '') }); back(); }
-      else { $('bookNew').replaceChildren(); await loadBook(); }
+      if (c) Object.assign(c, { name: f.name, department: f.department, phone: f.phone.replace(/^(\+|00)965/, '') });
+      else BOOK.push({ name: f.name, department: f.department, phone: f.phone.replace(/^(\+|00)965/, '') });
+      closeScreen();
     } catch (e) { fmsg.textContent = e; save.disabled = false; }
   };
   return el('div', { className: 'cform', style: 'width:100%' }, name, el('div', { className: 'row', style: 'margin-top:6px' }, dept), el('div', { className: 'row', style: 'margin-top:6px' }, phone),
     el('div', { className: 'row' }, save, cancel, fmsg));
 }
-$('bookAdd').onclick = () => $('bookNew').replaceChildren(el('div', { className: 'card' }, contactForm(null, () => $('bookNew').replaceChildren())));
+$('bookAdd').onclick = () => openScreen('رقم جديد', contactForm(null));
 
 // ---- Constraints, in the terms of the timetable sheet «القيود» (section three, columns A–I) ----
 const DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
@@ -388,7 +401,7 @@ const levelOf = (st, t) => t.lv === 'choose' || t.lv === 'choose-nw' ? st.level 
 const deptOf = (tt, target) => tt === 'معلّم' ? (teacherOf(target) || {}).department || '' : tt === 'مادّة' ? (SUBJECTS.find(x => x.s === target) || {}).d || '' : ALL;
 const lineOf = r => r.ctype + ': ' + r.target + (r.value ? ' — ' + (r.pattern ? r.pattern + ' · ' : '') + r.value : '');
 
-let RULES = null, DUR = 'شبه دائمة', OPEN = {};
+let RULES = null, DUR = 'شبه دائمة';
 async function loadRules() {
   $('rulesMsg').textContent = 'جارٍ التحميل...';
   try { const o = await call('rules'); RULES = o.rows; TYPES = o.types || []; renderRules(); $('rulesMsg').textContent = ''; }
@@ -410,6 +423,8 @@ function renderRules() {
     return b;
   }));
   const rows = ordered(all.filter(r => r.duration === DUR));
+  const done = rows.filter(r => r.checked).length;
+  $('rulesMsg').textContent = rows.length ? 'مستوفى ' + done + ' من ' + rows.length + (done === rows.length ? ' — اكتملت ✓' : '') : '';
   const out = [];
   let dept = null;
   for (const r of rows) {
@@ -418,39 +433,58 @@ function renderRules() {
   }
   $('rulesList').replaceChildren(el('div', { className: 'card', style: 'padding:12px' }, ...(out.length ? out : [el('div', { className: 'meta', textContent: 'لا قيود في هذه الصفحة' })])));
 }
+const levelText = r => r.level === 'مرن موزون' ? 'مرن' + (r.weight !== null && r.weight !== undefined ? ' ' + r.weight : '') : r.level;
+const targetText = r => r.target_type === 'معلّم' || r.target_type === 'بارامتر' ? r.target : r.target_type + ': ' + r.target;
+// One line per constraint: a tap ticks it off (saved on the server); «⋯» opens its details.
 function ruleItem(r) {
-  const box = el('div', { className: 'rule ' + ruleColor(r) });
-  if (OPEN[r.id] === 'edit') {
-    box.className = '';
-    box.append(builder({ rule: r, onDone: () => { OPEN[r.id] = null; renderRules(); } }));
-    return box;
-  }
-  const lvl = r.level === 'مرن موزون' ? 'مرن' + (r.weight !== null && r.weight !== undefined ? ' ' + r.weight : '') : r.level;
-  const st = r.sheet_state;
-  const link = r.link_id && (RULES || []).find(x => x.id === r.link_id);
+  const box = el('div', { className: 'rule ' + ruleColor(r) + (r.checked ? ' done' : '') });
+  const more = el('button', { type: 'button', className: 'more', textContent: '⋯', title: 'التفاصيل', ariaLabel: 'التفاصيل' });
+  more.onclick = () => openScreen('تفاصيل القيد', ruleDetail(r));
+  const lvl = levelText(r);
+  // Badges on the first line, the constraint itself on a full-width line under them.
   box.append(el('div', { className: 'top' },
+    el('span', { className: 'box', textContent: r.checked ? '✓' : '' }),
     el('span', { className: 'ct', textContent: (isProposed(r.ctype) ? '🆕 ' : '') + r.ctype }),
-    el('span', { className: 'tx' }, el('b', { textContent: r.target_type === 'معلّم' || r.target_type === 'بارامتر' ? r.target : r.target_type + ': ' + r.target }),
-      r.value ? ' — ' : '', r.pattern ? r.pattern + ' · ' : '', r.value ? el('span', { className: 'v', textContent: r.value }) : null),
+    el('span', { style: 'flex:1' }),
     lvl ? el('span', { className: 'lv ' + strength(r), textContent: lvl }) : null,
-    el('span', { className: 'st', textContent: STATE_ICON[st] || '', title: st })));
-  if (link) box.append(el('div', { className: 'sub', textContent: '🔗 مرتبط بـ: ' + lineOf(link) }));
+    el('span', { className: 'st', textContent: STATE_ICON[r.sheet_state] || '', title: r.sheet_state }), more),
+    el('div', { className: 'tx line' }, el('b', { textContent: targetText(r) }),
+      r.value ? ' — ' : '', r.pattern ? r.pattern + ' · ' : '', r.value ? el('span', { className: 'v', textContent: r.value }) : null));
   if (r.active === false) box.append(el('div', { className: 'sub', textContent: 'غير مفعَّل' }));
-  const ib = (t, label, k) => { const b = el('button', { type: 'button', className: 'ib', textContent: t, title: label, ariaLabel: label }); b.onclick = () => { OPEN[r.id] = OPEN[r.id] === k ? null : k; renderRules(); }; return b; };
-  const del = delButton('حذف القيد', async () => { await call('rule_delete', { id: r.id }); RULES = RULES.filter(x => x !== r); renderRules(); toast('حُذف ✓'); });
-  box.append(el('div', { className: 'tools' }, ib('⁉️', 'الملاحظة', 'why'), ib('⛓️‍💥', 'صف الشيت', 'row'), ib('✏️', 'تعديل', 'edit'), ib('↪️', 'نقل', 'move'), del));
-  if (OPEN[r.id] === 'why') box.append(el('div', { className: 'panel', textContent: r.reason || 'لا أعلم' }));
-  if (OPEN[r.id] === 'row') box.append(el('div', { className: 'panel' }, sheetRow(r)));
-  if (OPEN[r.id] === 'move') box.append(el('div', { className: 'panel' }, el('div', { className: 'chips' }, ...DURS.map(d => {
+  box.onclick = async e => {
+    if (e.target.closest('button')) return;
+    r.checked = !r.checked; renderRules();
+    try { await call('rule_check', { id: r.id, checked: r.checked }); }
+    catch (err) { r.checked = !r.checked; renderRules(); toast(err, true); }
+  };
+  return box;
+}
+// The details screen: note, the sheet row, moving between pages, editing and deleting.
+function ruleDetail(r) {
+  const link = r.link_id && (RULES || []).find(x => x.id === r.link_id);
+  const sec = (title, ...kids) => el('div', { className: 'dsec' }, el('b', { textContent: title }), ...kids);
+  const move = el('div', { className: 'chips' }, ...DURS.map(d => {
     const b = el('button', { type: 'button', className: 'chip' + (d === r.duration ? ' on' : ''), textContent: d });
     b.onclick = async () => {
       if (d === r.duration) return;
-      try { await call('rule_move', { id: r.id, duration: d }); r.duration = d; OPEN[r.id] = null; renderRules(); toast('نُقل إلى «' + d + '» ✓'); }
+      try { await call('rule_move', { id: r.id, duration: d }); r.duration = d; toast('نُقل إلى «' + d + '» ✓'); openScreen('تفاصيل القيد', ruleDetail(r)); }
       catch (e) { toast(e, true); }
     };
     return b;
-  }))));
-  return box;
+  }));
+  const edit = el('button', { type: 'button', textContent: '✏️ تعديل' });
+  edit.onclick = () => openScreen('تعديل قيد', builder({ rule: r }));
+  const del = delButton('حذف القيد', async () => { await call('rule_delete', { id: r.id }); RULES = RULES.filter(x => x !== r); toast('حُذف ✓'); closeScreen(); });
+  del.textContent = '🗑️ حذف';
+  return el('div', {},
+    el('div', { className: 'detailLine' }, el('span', { className: 'ct', textContent: (isProposed(r.ctype) ? '🆕 ' : '') + r.ctype, style: 'font-size:13px;font-weight:700;border:1px solid var(--line);border-radius:8px;padding:1px 7px;margin-inline-end:6px' }),
+      el('b', { textContent: targetText(r) }), r.value ? ' — ' + (r.pattern ? r.pattern + ' · ' : '') + r.value : ''),
+    el('div', { className: 'meta' }, [levelText(r), r.active === false ? 'غير مفعَّل' : '', (STATE_ICON[r.sheet_state] || '') + ' ' + r.sheet_state, r.department].filter(Boolean).join(' · ')),
+    link ? el('div', { className: 'meta', textContent: '🔗 مرتبط بـ: ' + lineOf(link) }) : null,
+    sec('⁉️ الملاحظة', el('div', { className: 'panel', style: 'margin-top:0', textContent: r.reason || 'لا أعلم' })),
+    sec('⛓️‍💥 صف الشيت', el('div', { className: 'panel', style: 'margin-top:0' }, sheetRow(r))),
+    sec('↪️ نقل إلى', move),
+    el('div', { className: 'row', style: 'margin-top:18px' }, edit, del));
 }
 // The constraint as a row of the sheet «القيود» (section three).
 const SHEET_COLS = ['نوع الهدف', 'الهدف', 'نوع القيد', 'النمط', 'القيمة', 'مستوى الإلزام', 'الوزن', 'مفعَّل', 'ملاحظة'];
@@ -460,13 +494,24 @@ function sheetRow(r) {
   const v = rowOf(r);
   return el('table', { className: 'sr' }, ...SHEET_COLS.map((h, i) => el('tr', {}, el('th', { textContent: 'ABCDEFGHI'[i] + ' · ' + h }), el('td', { textContent: v[i] === '' ? '—' : v[i] }))));
 }
-$('ruleAdd').onclick = () => {
-  if ($('ruleNew').firstChild) return;
-  $('ruleNew').replaceChildren(builder({ onDone: () => $('ruleNew').replaceChildren() }));
+$('ruleAdd').onclick = () => openScreen('إضافة قيد', builder({}));
+// Two taps (no confirm(): in-app browsers block it).
+let resetArmed = 0;
+$('rulesReset').onclick = async () => {
+  const b = $('rulesReset');
+  if (Date.now() - resetArmed > 4000) {
+    resetArmed = Date.now(); b.textContent = 'اضغط مرة أخرى للتأكيد'; b.className = 'warn';
+    setTimeout(() => { if (Date.now() - resetArmed >= 4000) { b.textContent = 'رفع الشطب عن الكل'; b.className = 'ghost'; } }, 4100);
+    return;
+  }
+  resetArmed = 0; b.disabled = true;
+  try { await call('rules_reset'); (RULES || []).forEach(r => { r.checked = false; }); renderRules(); toast('رُفع الشطب ✓'); }
+  catch (e) { toast(e, true); }
+  b.disabled = false; b.textContent = 'رفع الشطب عن الكل'; b.className = 'ghost';
 };
 
 // The builder: buttons only; only the fields the chosen type reads are shown, as the sheet locks the others.
-function builder({ rule, request, link, onDone }) {
+function builder({ rule, request, link, onSaved }) {
   const r = rule || {};
   const reqTeacher = request && TEACHERS.find(t => t.name === request.name);
   const st = {
@@ -552,7 +597,7 @@ function builder({ rule, request, link, onDone }) {
     const save = el('button', { type: 'button', textContent: 'حفظ القيد' });
     const saveLink = el('button', { type: 'button', className: 'ghost', textContent: 'حفظ وإضافة قيد مرتبط' });
     const cancel = el('button', { type: 'button', className: 'ghost', textContent: 'إلغاء' });
-    save.onclick = () => submit(false); saveLink.onclick = () => submit(true); cancel.onclick = () => onDone(false);
+    save.onclick = () => submit(false); saveLink.onclick = () => submit(true); cancel.onclick = closeScreen;
     parts.push(el('div', { className: 'row' }, save, rule ? null : saveLink, cancel, fmsg));
     box.replaceChildren(...parts);
     preview();
@@ -585,16 +630,10 @@ function builder({ rule, request, link, onDone }) {
         if (rule) Object.assign(rule, f);
         else RULES.push({ id: o.id, created_at: new Date().toISOString(), request_id: null, ...f });
       }
-      if (RULES && TAB === 'rules') renderRules();
-      onDone(true);
-      if (another) {
-        // The second constraint of a pair (e.g. two teachers whose last periods must not meet): opened under «القيود».
-        DUR = f.duration;
-        if (TAB !== 'rules') await tab('rules'); else if (!RULES) await loadRules(); else renderRules();
-        const first = (RULES || []).find(x => x.id === o.id) || { id: o.id, ...f };
-        $('ruleNew').replaceChildren(builder({ link: first, onDone: () => $('ruleNew').replaceChildren() }));
-        $('ruleNew').scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
+      if (onSaved) onSaved();
+      // The second constraint of a pair (e.g. two teachers whose last periods must not meet) takes this screen's place.
+      if (another) openScreen('قيد مرتبط', builder({ link: (RULES || []).find(x => x.id === o.id) || { id: o.id, ...f } }));
+      else closeScreen();
     } catch (e) { fmsg.textContent = e; box.querySelectorAll('button').forEach(b => { b.disabled = false; }); }
   }
   draw();
@@ -602,10 +641,10 @@ function builder({ rule, request, link, onDone }) {
 }
 
 // ---- Proposed types: named in the sheet's style, until the sheet's developer adds them ----
-$('typesBtn').onclick = () => { $('types').classList.toggle('hidden'); renderTypes(); };
-function renderTypes(editing) {
-  const box = $('types');
-  if (box.classList.contains('hidden')) return;
+$('typesBtn').onclick = () => openScreen('الأنواع المقترحة', typesView());
+function typesView(editing) {
+  const box = el('div');
+  const renderTypes = e => openScreen('الأنواع المقترحة', typesView(e));
   const form = t => {
     const name = el('input', { value: t ? t.name : '', placeholder: 'اسم النوع بنسق أسماء ورقة «القيود»', maxLength: 120 });
     let targets = t ? t.targets.split('،') : ['معلّم'];
@@ -640,9 +679,10 @@ function renderTypes(editing) {
   });
   const add = el('button', { type: 'button', className: 'ghost', textContent: '+ نوع مقترح جديد', style: 'width:100%;border-style:dashed;margin-top:8px' });
   add.onclick = () => add.replaceWith(form(null));
-  box.replaceChildren(el('h2', { textContent: 'الأنواع المقترحة' }),
+  box.replaceChildren(
     el('p', { className: 'lead', style: 'font-size:14px', textContent: 'أنواع ليست في ورقة «القيود» بعد؛ قيودها موسومة 🆕 حتى يضيفها مطور الشيت.' }),
     ...(items.length ? items : [el('div', { className: 'meta', textContent: 'لا أنواع مقترحة بعد' })]), editing === 'new' ? form(null) : add);
+  return box;
 }
 
 // ---- CSV: platform → sheet «القيود بلغة عرفية (حيدر)» ----
@@ -707,7 +747,7 @@ $('sheetFile').onchange = async () => {
   } catch (e) { toast(e, true); }
 };
 function showReport(total, changed, missing) {
-  const box = $('report');
+  const box = el('div');
   const count = s => (RULES || []).filter(r => r.sheet_state === s).length;
   const fromSheet = x => {
     const tt = ['معلّم', 'مادّة', 'دور'].find(v => fold(v) === fold(x['نوع الهدف'])) || 'معلّم';
@@ -730,16 +770,15 @@ function showReport(total, changed, missing) {
   const all = el('button', { type: 'button', textContent: 'إضافة الكل (' + missing.length + ')' });
   all.onclick = async () => {
     all.disabled = true;
-    try { for (const x of [...missing]) await addOne(x); renderRules(); toast('أُضيف ' + missing.length + ' ✓'); box.classList.add('hidden'); }
+    try { for (const x of [...missing]) await addOne(x); toast('أُضيف ' + missing.length + ' ✓'); closeScreen(); }
     catch (e) { toast(e, true); all.disabled = false; }
   };
   const close = el('button', { type: 'button', className: 'ghost', textContent: 'إغلاق' });
-  close.onclick = () => box.classList.add('hidden');
-  box.replaceChildren(el('h2', { textContent: 'تقرير استيراد قيود الشيت' }),
+  close.onclick = closeScreen;
+  box.replaceChildren(
     el('div', { textContent: 'في الملف ' + total + ' صفاً · تغيّر وسم ' + changed + ' قيداً.' }),
     el('div', { className: 'meta', textContent: '✅ مسجّل ' + count('مسجّل') + ' · ⏸️ خامل ' + count('خامل') + ' · ⏳ غير مسجّل ' + count('غير مسجّل') + ' · 🆕 نوع مقترح ' + count('نوع مقترح') }),
     ...(missing.length ? [el('div', { className: 'field', style: 'margin-top:8px' }, el('b', { textContent: 'في الشيت وليس في المنصة (' + missing.length + '):' })), list] : []),
     el('div', { className: 'row' }, missing.length ? all : null, close));
-  box.classList.remove('hidden');
-  box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  openScreen('تقرير الاستيراد', box);
 }

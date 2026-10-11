@@ -65,7 +65,7 @@ function cleanRule(b: Record<string, any>) {
 }
 const ruleError = (r: ReturnType<typeof cleanRule>) =>
   !r.target ? "الهدف مطلوب" : !r.ctype ? "نوع القيد مطلوب" : !r.reason ? "الملاحظة (السبب) مطلوبة" : !r.text ? "نص القيد مطلوب" : "";
-const RULE_COLS = "id,created_at,department,text,level,reason,request_id,target_type,target,ctype,pattern,value,weight,active,duration,sheet_state,link_id";
+const RULE_COLS = "id,created_at,department,text,level,reason,request_id,target_type,target,ctype,pattern,value,weight,active,duration,sheet_state,link_id,checked";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -165,6 +165,15 @@ Deno.serve(async (req) => {
     if (!duration) return fail("المدة غير معروفة");
     const { error } = await db.from("constraints").update({ duration }).eq("id", Number(body.id));
     return error ? fail("تعذر النقل", 500) : json({ ok: true });
+  }
+  if (action === "rule_check") {
+    // The checklist: a constraint ticked off after checking the exported timetable.
+    const { error } = await db.from("constraints").update({ checked: !!body.checked }).eq("id", Number(body.id));
+    return error ? fail("تعذر التحديث", 500) : json({ ok: true });
+  }
+  if (action === "rules_reset") {
+    const { error } = await db.from("constraints").update({ checked: false }).eq("checked", true);
+    return error ? fail("تعذر رفع الشطب", 500) : json({ ok: true });
   }
   if (action === "rule_delete") {
     const { error } = await db.from("constraints").delete().eq("id", Number(body.id));

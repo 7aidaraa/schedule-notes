@@ -109,6 +109,24 @@
   .report { border-inline-start:5px solid var(--gold); }
   .report li { margin-bottom:4px; }
   .helpText { white-space:pre-wrap; font-size:15px; line-height:1.9; }
+  .helpFab { position:absolute; top:12px; left:12px; width:34px; height:34px; padding:0; border-radius:50%; background:rgba(255,255,255,.18); border:1.5px solid rgba(255,255,255,.55); color:#fff; font-size:18px; line-height:1; box-shadow:none; }
+  .scrHead { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .scrHead h2 { margin:0; font-size:18px; color:var(--navy); background:#fff; padding:6px 14px; border-radius:12px; box-shadow:var(--shadow); flex:1; }
+  .scrHead button { flex:none; background:#fff; }
+  #scrBody .builder { margin:0; border:0; padding:0; }
+  /* The checklist: a tap ticks a constraint off; «رفع الشطب عن الكل» clears every tick. */
+  .rule { cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .rule .box { flex:none; width:22px; height:22px; margin-top:2px; border:2px solid var(--sky); border-radius:7px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:14px; background:#fff; }
+  .rule.done .box { background:var(--ok); border-color:var(--ok); }
+  .rule.done .tx { text-decoration:line-through; color:var(--mute); }
+  .rule.done .tx b, .rule.done .tx .v { color:var(--mute); }
+  .rule .tx.line { margin:4px 30px 0 0; }
+  .rule .ct { max-width:none; }
+  .rule .more { flex:none; padding:0 8px; font-size:18px; line-height:1.4; background:#fff; border:1.5px solid var(--line); border-radius:9px; color:var(--ink); box-shadow:none; font-weight:700; }
+  .detailLine { font-size:17px; line-height:1.6; margin-bottom:8px; }
+  .detailLine b { color:var(--navy); }
+  .dsec { margin-top:14px; }
+  .dsec > b { display:block; color:var(--mute); font-size:13px; margin-bottom:4px; }
   footer { text-align:center; color:var(--mute); font-size:13px; padding:8px 16px 28px; }
   @media (prefers-reduced-motion: reduce) { * { transition:none !important; } }
 </style>
@@ -116,6 +134,7 @@
 <body>
 <div id="ptr"></div>
 <header class="hero">
+  <button id="helpBtn" class="helpFab hidden" type="button" title="تعليمات" aria-label="تعليمات">؟</button>
   <svg class="mark" viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="9" width="36" height="33" rx="6" fill="none" stroke="#fff" stroke-width="2.5"/><path d="M6 18h36M16 5v8M32 5v8" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><rect x="12" y="23" width="7" height="6" rx="1.5" fill="#f3d48f"/><rect x="21" y="23" width="7" height="6" rx="1.5" fill="#fff" opacity=".55"/><rect x="30" y="23" width="7" height="6" rx="1.5" fill="#fff" opacity=".55"/><rect x="12" y="32" width="7" height="6" rx="1.5" fill="#fff" opacity=".55"/><rect x="21" y="32" width="7" height="6" rx="1.5" fill="#fff" opacity=".55"/></svg>
   <h1>ملاحظات الجدول المدرسي</h1>
   <div class="school">أرسل ملاحظتك على الجدول</div>
@@ -131,21 +150,17 @@
   </section>
 
   <section id="admin" class="hidden">
-    <div class="tabs"><button id="tabRules" class="ghost on">القيود</button><button id="tabReq" class="ghost">الطلبات</button><button id="tabBook" class="ghost">الهواتف</button><button id="helpBtn" class="ghost help">تعليمات</button></div>
-    <div id="help" class="card hidden"><h2>تعليمات</h2><div class="helpText" id="helpText"></div></div>
+    <div class="tabs"><button id="tabRules" class="ghost on">القيود</button><button id="tabReq" class="ghost">الطلبات</button><button id="tabBook" class="ghost">الهواتف</button></div>
 
     <div id="rules">
       <div class="tabs sub" id="durTabs"></div>
       <div class="row" style="margin:0 0 12px">
-        <button id="ruleAdd">+ قيد جديد</button>
+        <button id="ruleAdd">+ إضافة قيد</button>
         <button id="typesBtn" class="ghost">+ نوع مقترح</button>
-        <button id="rulesCsv" class="ghost">تصدير CSV للشيت</button>
-        <button id="sheetImport" class="ghost">استيراد قيود الشيت</button><input id="sheetFile" type="file" accept=".csv,text/csv" class="hidden">
-        <span id="rulesMsg" class="meta"></span>
+        <button id="rulesCsv" class="ghost">تصدير CSV</button>
+        <button id="sheetImport" class="ghost">استيراد CSV القيود</button><input id="sheetFile" type="file" accept=".csv,text/csv" class="hidden">
       </div>
-      <div id="types" class="card hidden"></div>
-      <div id="report" class="card report hidden"></div>
-      <div id="ruleNew"></div>
+      <div class="row" style="margin:0 0 10px;justify-content:space-between"><span id="rulesMsg" class="meta"></span><button id="rulesReset" class="ghost" style="padding:6px 12px;font-size:14px">رفع الشطب عن الكل</button></div>
       <div id="rulesList"></div>
     </div>
 
@@ -156,9 +171,14 @@
 
     <div id="book" class="hidden">
       <div class="row" style="margin:0 0 12px"><button id="bookAdd">+ رقم جديد</button><span id="bookMsg" class="meta"></span></div>
-      <div id="bookNew"></div>
       <div id="bookList"></div>
     </div>
+  </section>
+
+  <!-- Whatever opens gets the whole page, with a way back (the phone's back button too). -->
+  <section id="screen" class="hidden">
+    <div class="scrHead"><button id="scrBack" class="ghost" type="button">→ رجوع</button><h2 id="scrTitle"></h2></div>
+    <div id="scrBody" class="card"></div>
   </section>
 
   <section id="teacher" class="hidden">
