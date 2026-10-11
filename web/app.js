@@ -564,6 +564,32 @@ function builder({ rule, request, link, onSaved }) {
       const list = [...SHEET_TYPES.filter(t => t.for.includes(st.tt)), ...TYPES.filter(t => t.targets.split('،').includes(st.tt)).map(t => ({ g: 'مقترحة', n: t.name }))];
       if (st.ctype && !list.some(t => t.n === st.ctype)) list.push({ g: 'مقترحة', n: st.ctype });
       for (const g of [...new Set(list.map(t => t.g))]) parts.push(el('div', { className: 'gname', textContent: g }), chips(list.filter(t => t.g === g).map(t => t.n), st.ctype, v => { st.ctype = v; }));
+      // A type the sheet does not have yet: named here, tagged 🆕 until the sheet's developer adds it.
+      if (st.newType) {
+        const name = el('input', { placeholder: 'اسم النوع بنسق أسماء ورقة «القيود»', maxLength: 120 });
+        const explain = el('textarea', { placeholder: 'شرحه لمطور الشيت: ما الذي يمنعه أو يلزمه البرنامج', maxLength: 2000 });
+        const ok = el('button', { type: 'button', textContent: 'حفظ النوع' });
+        const no = el('button', { type: 'button', className: 'ghost', textContent: 'إلغاء' });
+        const tmsg = el('span', { className: 'meta' });
+        no.onclick = () => { st.newType = false; draw(); };
+        ok.onclick = async () => {
+          const n = name.value.trim();
+          if (!n) return (tmsg.textContent = 'اكتب اسم النوع');
+          ok.disabled = true;
+          try {
+            await call('type_save', { name: n, targets: [st.tt], explain: explain.value.trim() });
+            TYPES = TYPES.filter(t => t.name !== n).concat({ name: n, targets: st.tt, explain: explain.value.trim() });
+            st.ctype = n; st.newType = false; toast('حُفظ النوع ✓'); draw();
+          } catch (e) { tmsg.textContent = e; ok.disabled = false; }
+        };
+        parts.push(el('div', { className: 'hint', style: 'background:var(--gold-soft)' }, el('b', { textContent: 'نوع جديد (' + st.tt + ')' }), name, explain, el('div', { className: 'row', style: 'margin-top:6px' }, ok, no, tmsg)));
+      } else {
+        const add = el('button', { type: 'button', className: 'chip', textContent: '+ نوع جديد', style: 'border-style:dashed;margin-top:6px' });
+        add.onclick = () => { st.newType = true; draw(); };
+        const manage = el('button', { type: 'button', className: 'chip', textContent: 'الأنواع المقترحة', style: 'margin-top:6px' });
+        manage.onclick = () => openScreen('الأنواع المقترحة', typesView());
+        parts.push(el('div', { className: 'chips' }, add, TYPES.length ? manage : null));
+      }
     }
     const t = typeOf(st.ctype);
     if (t) {
@@ -641,7 +667,6 @@ function builder({ rule, request, link, onSaved }) {
 }
 
 // ---- Proposed types: named in the sheet's style, until the sheet's developer adds them ----
-$('typesBtn').onclick = () => openScreen('الأنواع المقترحة', typesView());
 function typesView(editing) {
   const box = el('div');
   const renderTypes = e => openScreen('الأنواع المقترحة', typesView(e));
