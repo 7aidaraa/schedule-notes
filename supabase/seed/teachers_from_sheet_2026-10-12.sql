@@ -98,3 +98,5 @@ update teachers set subject = 'التربية الموسيقية', subject2 = ''
 update teachers set subject = 'التربية الموسيقية', subject2 = '', category = 'بلا قيود صلبة', wing_sup = false where uid = 'XrLs32BMMoUaW0UeqlfGXdNj4U53' or (uid is null and nick = 'أيمن محمد');
 update teachers set subject = 'المكتبات', subject2 = '', category = 'بلا قيود صلبة', wing_sup = false where uid = 'mY0M1089IvTLBlTKIolupRk9CVs2' or (uid is null and nick = 'عماد رضوان');
 update teachers set subject = 'التجاري', subject2 = '', category = 'بلا قيود صلبة', wing_sup = false where nick = 'محمد بدوى';
+-- قرار صاحب المنصة (2026-10-12): «احمد زين العابدين» يُحذف من المنصة (لا قيد ولا رقم ولا طلب باسمه).
+delete from teachers where name = 'احمد زين العابدين';
