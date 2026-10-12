@@ -156,16 +156,18 @@ $('sendBtn').onclick = async () => {
 let TAB = 'rules';
 function tab(which) {
   TAB = which;
-  ['rules', 'req', 'book'].forEach(k => $('tab' + k[0].toUpperCase() + k.slice(1)).classList.toggle('on', which === k));
+  ['rules', 'req', 'book', 'old'].forEach(k => $('tab' + k[0].toUpperCase() + k.slice(1)).classList.toggle('on', which === k));
   $('rules').classList.toggle('hidden', which !== 'rules');
   $('reqView').classList.toggle('hidden', which !== 'req');
   $('book').classList.toggle('hidden', which !== 'book');
+  $('oldView').classList.toggle('hidden', which !== 'old');
   return refresh();
 }
-function refresh() { return TAB === 'rules' ? loadRules() : TAB === 'req' ? loadList() : loadBook(); }
+function refresh() { return TAB === 'rules' ? loadRules() : TAB === 'req' ? loadList() : TAB === 'old' ? loadOld() : loadBook(); }
 $('tabRules').onclick = () => tab('rules');
 $('tabReq').onclick = () => tab('req');
 $('tabBook').onclick = () => tab('book');
+$('tabOld').onclick = () => tab('old');
 
 // ---- Screens: whatever opens gets the whole page, with «رجوع» (and the phone's back button) to return ----
 let SCREEN_Y = 0;
@@ -180,7 +182,7 @@ function closeScreen() { if (screenOpen()) history.back(); }
 addEventListener('popstate', () => {
   if (!screenOpen()) return;
   $('screen').classList.add('hidden'); $('scrBody').replaceChildren(); $('admin').classList.remove('hidden');
-  if (TAB === 'rules') renderRules(); else if (TAB === 'req') render(); else renderBook();
+  if (TAB === 'rules') renderRules(); else if (TAB === 'req') render(); else if (TAB === 'old') renderOld(); else renderBook();
   scrollTo(0, SCREEN_Y);
 });
 $('scrBack').onclick = closeScreen;
@@ -1111,4 +1113,137 @@ function typeSections(tt, target, rows) {
       el('div', { className: 'meta', textContent: x.h }), ...mine.map(r => miniRule(r)), slot);
     return sec;
   })];
+}
+
+// ---- «المنصة القديمة»: the constraints as one long list of free text, and every request, until the two are merged ----
+let OLD = null, OLD_TODAY = [], OVIEW = 'rules';
+async function loadOld() {
+  $('oldBody').replaceChildren(el('div', { className: 'meta', textContent: 'جارٍ التحميل...' }));
+  try {
+    const [o, l] = await Promise.all([call('old_rules'), call('list')]);
+    OLD = o.rows; OLD_TODAY = o.today || []; ROWS = l.rows; renderOld();
+  } catch (e) { $('oldBody').replaceChildren(el('div', { className: 'card meta', textContent: e })); }
+}
+$('ovRules').onclick = () => { OVIEW = 'rules'; renderOld(); };
+$('ovReq').onclick = () => { OVIEW = 'req'; renderOld(); };
+function renderOld() {
+  $('ovRules').classList.toggle('on', OVIEW === 'rules'); $('ovReq').classList.toggle('on', OVIEW === 'req');
+  if (!OLD) return;
+  if (OVIEW === 'req') return renderOldReq();
+  const done = OLD.filter(r => r.checked).length;
+  const add = el('button', { textContent: '+ إضافة قيد' });
+  add.onclick = () => openScreen('إضافة قيد', oldForm(null));
+  const reset = el('button', { className: 'ghost', textContent: 'رفع الشطب عن الكل', style: 'padding:6px 12px;font-size:14px' });
+  let armed = 0;
+  reset.onclick = async () => {
+    if (Date.now() - armed > 4000) { armed = Date.now(); reset.textContent = 'اضغط مرة أخرى للتأكيد'; reset.className = 'warn'; setTimeout(() => { if (Date.now() - armed >= 4000) renderOld(); }, 4100); return; }
+    reset.disabled = true;
+    try { await call('rules_reset', { old: true }); OLD.forEach(r => { r.checked = false; }); renderOld(); toast('رُفع الشطب ✓'); }
+    catch (e) { toast(e, true); reset.disabled = false; }
+  };
+  $('oldBody').replaceChildren(
+    el('div', { className: 'row', style: 'margin:0 0 10px;justify-content:space-between' }, add, el('span', { className: 'meta', textContent: 'مستوفى ' + done + ' من ' + OLD.length }), reset),
+    el('div', { className: 'card', style: 'padding:10px' }, ...OLD.map((r, i) => oldLine(r, i + 1))));
+}
+function oldLine(r, n) {
+  const box = el('div', { className: 'oldRule' + (r.checked ? ' done' : '') });
+  const edit = el('button', { type: 'button', className: 'ib', textContent: '✏️', title: 'تعديل' });
+  edit.onclick = () => openScreen('تعديل قيد', oldForm(r));
+  const del = delButton('حذف القيد', async () => { await call('rule_delete', { id: r.id }); OLD = OLD.filter(x => x !== r); renderOld(); toast('حُذف ✓'); });
+  box.append(el('span', { className: 'box', textContent: r.checked ? '✓' : '' }), el('span', { className: 'n', textContent: n }),
+    el('div', { className: 'tx' }, el('div', { textContent: r.text }),
+      el('div', { className: 'meta', textContent: [r.teacher ? nickOf(r.teacher) : '', r.department, r.level, r.reason ? 'السبب: ' + r.reason : ''].filter(Boolean).join(' · ') })),
+    edit, del);
+  box.onclick = async e => {
+    if (e.target.closest('button')) return;
+    r.checked = !r.checked; renderOld();
+    try { await call('rule_check', { id: r.id, checked: r.checked }); } catch (err) { r.checked = !r.checked; renderOld(); toast(err, true); }
+  };
+  return box;
+}
+// The old form: the constraint in free text, the teacher (or «كل القسم»), the department, binding and reason.
+function oldForm(r, from) {
+  const f = r || from || {};
+  const text = el('textarea', { value: f.text || '', placeholder: 'القيد', maxLength: 3000 });
+  const dept = select([ALL, ...depts()], f.department || '', 'القسم');
+  const who = el('select');
+  const fillWho = () => {
+    const cur = who.value || f.teacher || '';
+    who.replaceChildren(el('option', { value: '', textContent: '— بلا معلم —' }), el('option', { value: 'كل القسم', textContent: 'كل القسم' }),
+      ...TEACHERS.filter(t => !dept.value || dept.value === ALL || t.department === dept.value).map(t => el('option', { value: t.name, textContent: nickT(t) })));
+    if (cur && ![...who.options].some(o => o.value === cur)) who.append(el('option', { value: cur, textContent: nickOf(cur) }));
+    who.value = cur;
+  };
+  dept.onchange = fillWho; fillWho();
+  const level = select(['صلب', 'مرن'], f.level || '', 'الإلزام');
+  const reason = el('textarea', { value: f.reason || '', placeholder: 'السبب', maxLength: 3000 });
+  const save = el('button', { type: 'button', textContent: 'حفظ' });
+  const cancel = el('button', { type: 'button', className: 'ghost', textContent: 'إلغاء' });
+  const fmsg = el('span', { className: 'meta' });
+  cancel.onclick = closeScreen;
+  save.onclick = async () => {
+    const v = { text: text.value.trim(), teacher: who.value, department: dept.value, level: level.value, reason: reason.value.trim() };
+    if (!v.text) return (fmsg.textContent = 'اكتب القيد');
+    save.disabled = true;
+    try {
+      const o = await call('old_rule_save', { ...v, id: r ? r.id : undefined });
+      if (r) Object.assign(r, v); else OLD.push({ id: o.id, section: 'المنصة القديمة', checked: false, ...v });
+      toast('حُفظ ✓'); closeScreen();
+    } catch (e) { fmsg.textContent = e; save.disabled = false; }
+  };
+  const lbl = t => el('div', { textContent: t, style: 'font-weight:700;color:var(--navy);font-size:14px;margin:10px 0 4px' });
+  return el('div', { className: 'cform' }, lbl('القيد'), text, lbl('القسم'), dept, lbl('المعلم'), who, lbl('الإلزام'), level, lbl('السبب'), reason,
+    el('div', { className: 'row' }, save, cancel, fmsg));
+}
+// The requests: those recovered from their constraints (the requests themselves were deleted), then the live ones.
+function renderOldReq() {
+  const card = (title, kids) => el('div', { className: 'card' }, el('div', { className: 'row', style: 'margin-top:0;justify-content:space-between' }, el('strong', { textContent: title }), el('span', { className: 'lost', textContent: 'نص الطلب الأصلي مفقود' })), ...kids);
+  // Old constraints «من الطلبات»: one card per teacher and reason.
+  const groups = new Map();
+  for (const r of OLD.filter(x => x.section === 'من الطلبات')) {
+    const k = r.teacher + '|' + r.department + '|' + (r.reason || '');
+    if (!groups.has(k)) groups.set(k, { r, items: [] });
+    groups.get(k).items.push(r.text);
+  }
+  const recovered = [...groups.values()].map(({ r, items }) => card(nickOf(r.teacher), [
+    el('div', { className: 'meta', textContent: [r.department, r.created_at ? new Date(r.created_at).toLocaleDateString('ar-KW') : ''].filter(Boolean).join(' · ') }),
+    field('السبب', r.reason), field('القيد', items.join('\n'))]));
+  // Converted on 2026-10-12 in the new platform: their constraint stays there; «أضف إلى القيود القديمة» copies it here.
+  const today = OLD_TODAY.map(r => {
+    const t = teacherOf(r.target);
+    const add = el('button', { className: 'ghost', textContent: 'أضف إلى القيود القديمة', style: 'margin-top:8px' });
+    add.onclick = () => openScreen('إضافة قيد', oldForm(null, { text: lineOf(r), teacher: t ? t.name : r.target_type === 'معلّم' ? r.target : '', department: t ? t.department : r.department === ALL ? ALL : r.department, level: /مرن/.test(r.level) ? 'مرن' : r.level ? 'صلب' : '', reason: r.reason }));
+    return card(r.target_type === 'معلّم' ? r.target : targetText(r), [
+      el('div', { className: 'meta', textContent: [t ? t.department : '', new Date(r.created_at).toLocaleString('ar-KW')].filter(Boolean).join(' · ') }),
+      field('السبب', r.reason), field('القيد (في المنصة الجديدة)', lineOf(r)), add]);
+  });
+  // Live requests: answering one adds an old constraint and marks it done; it is not deleted until the merge.
+  const live = ROWS.map(r => {
+    const c = el('div', { className: 'card' });
+    const box = el('textarea', { value: r.note || '', placeholder: 'القيد', maxLength: 3000 });
+    const save = el('button', { textContent: r.done ? 'أضف قيداً آخر' : 'حفظ القيد' });
+    const fmsg = el('span', { className: 'meta' });
+    save.onclick = async () => {
+      const text = box.value.trim();
+      if (!text) return (fmsg.textContent = 'اكتب القيد');
+      const t = TEACHERS.find(x => x.name === r.name);
+      save.disabled = true;
+      try {
+        const o = await call('old_rule_save', { text, teacher: r.name, department: r.department || (t || {}).department || '', level: '', reason: r.reason, request_id: r.id });
+        OLD.push({ id: o.id, section: 'من الطلبات', teacher: r.name, department: r.department, text, reason: r.reason, checked: false, created_at: new Date().toISOString() });
+        r.done = true; r.note = text; toast('حُفظ ✓'); renderOld();
+      } catch (e) { fmsg.textContent = e; save.disabled = false; }
+    };
+    c.append(el('div', { className: 'row', style: 'margin-top:0;justify-content:space-between' }, el('strong', { textContent: nickOf(r.name) }), r.done ? el('span', { className: 'meta', textContent: 'تم ✓' }) : null),
+      el('div', { className: 'meta', textContent: [r.department, new Date(r.created_at).toLocaleString('ar-KW')].filter(Boolean).join(' · ') }),
+      field('الطلب', r.request), field('السبب', r.reason),
+      r.phone ? el('div', { className: 'row', style: 'margin-top:0' }, waBtn(r.phone, r.name, r.request), el('a', { href: 'tel:+965' + r.phone, textContent: r.phone, dir: 'ltr' })) : null,
+      el('div', { className: 'lbl', textContent: 'القيد', style: 'font-weight:700;color:var(--navy);font-size:14px;margin:8px 0 4px' }), box, el('div', { className: 'row' }, save, fmsg));
+    return c;
+  });
+  const head = t => el('div', { className: 'grp', textContent: t });
+  $('oldBody').replaceChildren(...[
+    head('الطلبات الحالية (' + live.length + ')'), ...(live.length ? live : [el('div', { className: 'card meta', textContent: 'لا طلبات جديدة' })]),
+    head('حُوّلت اليوم في المنصة الجديدة (' + today.length + ')'), ...today,
+    head('مسترجعة من القيود القديمة (' + recovered.length + ')'), ...recovered].filter(Boolean));
 }

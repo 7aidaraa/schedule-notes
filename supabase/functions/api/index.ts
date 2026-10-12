@@ -235,8 +235,34 @@ Deno.serve(async (req) => {
     return error ? fail("تعذر التحديث", 500) : json({ ok: true });
   }
   if (action === "rules_reset") {
-    const { error } = await db.from("constraints").update({ checked: false }).eq("checked", true);
+    // Each platform clears its own ticks: the old list (no target type) or the sheet-terms rows.
+    const q = db.from("constraints").update({ checked: false }).eq("checked", true);
+    const { error } = await (body.old ? q.eq("target_type", "") : q.neq("target_type", ""));
     return error ? fail("تعذر رفع الشطب", 500) : json({ ok: true });
+  }
+  // ---- «المنصة القديمة»: the constraints as one long list of free text (before the sheet terms), until the merge ----
+  if (action === "old_rules") {
+    const { data, error } = await db.from("constraints").select("id,created_at,section,pos,teacher,department,text,level,reason,checked")
+      .eq("target_type", "").order("id");
+    // Constraints converted from requests on 2026-10-12 (the requests themselves were deleted): shown as recovered requests.
+    const { data: today, error: e2 } = await db.from("constraints").select(RULE_COLS).in("id", [1105, 1106, 1107, 1108, 1109]).order("id");
+    return error || e2 ? fail("تعذر جلب القيود", 500) : json({ rows: data, today });
+  }
+  if (action === "old_rule_save") {
+    const r = { text: str(body.text, 3000), teacher: str(body.teacher, 120), department: str(body.department, 80), level: str(body.level, 40), reason: str(body.reason, 3000) };
+    if (!r.text) return fail("نص القيد مطلوب");
+    if (body.id) {
+      const { error } = await db.from("constraints").update(r).eq("id", Number(body.id)).eq("target_type", "");
+      return error ? fail("تعذر الحفظ", 500) : json({ ok: true, id: Number(body.id) });
+    }
+    const { data: last } = await db.from("constraints").select("pos").eq("target_type", "").order("pos", { ascending: false }).limit(1).maybeSingle();
+    const section = body.request_id ? "من الطلبات" : "المنصة القديمة";
+    const { data, error } = await db.from("constraints").insert({ ...r, section, pos: (last?.pos ?? 0) + 1, target_type: "" }).select("id").single();
+    if (error) return fail("تعذر الحفظ", 500);
+    // A request answered here stays in the list (marked done) until the two platforms are merged.
+    const rid = str(body.request_id, 64);
+    if (rid) await db.from("requests").update({ done: true, note: r.text }).eq("id", rid);
+    return json({ ok: true, id: data.id });
   }
   if (action === "rule_delete") {
     const { error } = await db.from("constraints").delete().eq("id", Number(body.id));

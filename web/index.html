@@ -152,6 +152,13 @@
   .tsec { margin-top:8px; padding:8px 10px; border:1px solid var(--line); border-radius:12px; background:#fff; }
   .tsec .hd { display:flex; align-items:center; gap:8px; } .tsec .hd b { flex:1; color:var(--navy); }
   .tsec .rule { margin:6px 0 0; }
+  .oldRule { display:flex; gap:8px; align-items:flex-start; padding:8px 10px; border-radius:12px; margin-bottom:6px; background:#f6f9fb; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .oldRule .n { flex:none; color:var(--mute); font-size:12px; min-width:24px; margin-top:3px; }
+  .oldRule .tx { flex:1; min-width:0; overflow-wrap:anywhere; } .oldRule .meta { font-size:12px; }
+  .oldRule.done .tx > div:first-child { text-decoration:line-through; color:var(--mute); }
+  .oldRule .box { flex:none; width:22px; height:22px; margin-top:2px; border:2px solid var(--sky); border-radius:7px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:14px; background:#fff; }
+  .oldRule.done .box { background:var(--ok); border-color:var(--ok); }
+  .lost { display:inline-block; font-size:12px; font-weight:700; color:#7a5300; background:var(--gold-soft); border-radius:8px; padding:1px 8px; }
   footer { text-align:center; color:var(--mute); font-size:13px; padding:8px 16px 28px; }
   @media (prefers-reduced-motion: reduce) { * { transition:none !important; } }
 </style>
@@ -175,7 +182,7 @@
   </section>
 
   <section id="admin" class="hidden">
-    <div class="tabs"><button id="tabRules" class="ghost on">القيود</button><button id="tabReq" class="ghost">الطلبات</button><button id="tabBook" class="ghost">الهواتف</button></div>
+    <div class="tabs"><button id="tabRules" class="ghost on">القيود</button><button id="tabReq" class="ghost">الطلبات</button><button id="tabBook" class="ghost">الهواتف</button><button id="tabOld" class="ghost">المنصة القديمة</button></div>
 
     <div id="rules">
       <div class="tabs sub"><button id="rvCover" class="ghost on">التغطية</button><button id="rvList" class="ghost">القائمة</button></div>
@@ -200,6 +207,12 @@
     <div id="book" class="hidden">
       <div class="row" style="margin:0 0 12px"><button id="bookAdd">+ رقم جديد</button><span id="bookMsg" class="meta"></span></div>
       <div id="bookList"></div>
+    </div>
+
+    <!-- «المنصة القديمة»: the constraints as one long list and every request, until the two are merged. -->
+    <div id="oldView" class="hidden">
+      <div class="tabs sub"><button id="ovRules" class="ghost on">القيود</button><button id="ovReq" class="ghost">الطلبات</button></div>
+      <div id="oldBody"></div>
     </div>
   </section>
 
