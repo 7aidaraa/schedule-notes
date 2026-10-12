@@ -189,12 +189,18 @@ $('helpBtn').onclick = () => openScreen('تعليمات', el('div', { className:
 const HELP = `سير المنصة
 ١. المعلم يرسل ملاحظته على الجدول.
 ٢. المطور يحوّلها إلى قيد بـ«حفظ القيد»، فيُحذف الطلب.
-٣. القيود ثلاث صفحات: دائمة، شبه دائمة، مؤقتة.
-٤. ضغطة على القيد تشطبه، و«رفع الشطب عن الكل» يعيدها. «⋯» يفتح تفاصيله.
-٥. «تصدير CSV» يُستورد إلى ورقة «القيود بلغة عرفية (حيدر)» فقط.
-٦. ورقة «القيود» في الشيت لا تكتب فيها المنصة.
-٧. «استيراد CSV القيود» يحدّث الوسوم: ✅ مسجّل · ⏸️ خامل · ⏳ غير مسجّل · 🆕 نوع مقترح.
-٨. التحديث: اسحب الشاشة للأسفل.
+٣. «التغطية» أول ما يُفتح: المواد والأدوار والظروف، ثم المعلمون بالقسم. أمام المعلم رقمان: موروث · خاص.
+   أحمر = لا قيد له · أصفر = موروث فقط · أخضر = له قيد خاص.
+٤. ضغطة على مادة أو دور أو ظرف أو معلم تفتح شبكة الأسبوع: لمسة = صلب، الثانية = مرن، الثالثة ترفع الحجب
+   (والسابعة بالعكس: مرن 100 أولاً، والصلب للقرار الإداري فقط). ضغطة رقم الحصة تحجب العمود كله.
+   المخطط في البطاقة موروث من المادّة أو الدور أو الظرف، ويُعدَّل من صفحته.
+   «حفظ» يكتب الفرق وحده، والمعاينة تقول ما يُضاف إلى ورقة «القيود» وما يُحذف منها.
+٥. «القائمة»: ثلاث صفحات (دائمة، شبه دائمة، مؤقتة). ضغطة على القيد تشطبه، و«رفع الشطب عن الكل» يعيدها. «⋯» يفتح تفاصيله.
+٦. «استيراد CSV المعلمين» (في التغطية): ملف ورقة «المعلمون» من الشيت؛ منه تعرف المنصة مادة المعلم ودوره.
+٧. «تصدير CSV» يُستورد إلى ورقة «القيود بلغة عرفية (حيدر)» فقط. قيد الظرف صف لكل عضو فيه.
+٨. ورقة «القيود» في الشيت لا تكتب فيها المنصة.
+٩. «استيراد CSV القيود» يحدّث الوسوم: ✅ مسجّل · ⏸️ خامل · ⏳ غير مسجّل · 🆕 نوع مقترح.
+١٠. التحديث: اسحب الشاشة للأسفل.
 
 ملف الشيت إلى المنصة (لمطور الشيت)
 - صفوف القسم الثالث من ورقة «القيود» بترتيبها.
@@ -399,12 +405,15 @@ function valueOf(st) {
 }
 const levelOf = (st, t) => t.lv === 'choose' || t.lv === 'choose-nw' ? st.level : t.lv;
 const deptOf = (tt, target) => tt === 'معلّم' ? (teacherOf(target) || {}).department || '' : tt === 'مادّة' ? (SUBJECTS.find(x => x.s === target) || {}).d || '' : ALL;
+// A circumstance takes the teacher's types (its rows go to the sheet as one «معلّم» row per member).
+const ttFor = tt => tt === 'ظرف' ? 'معلّم' : tt;
+const durOf = tt => tt === 'معلّم' || tt === 'ظرف' ? 'شبه دائمة' : 'دائمة';
 const lineOf = r => r.ctype + ': ' + r.target + (r.value ? ' — ' + (r.pattern ? r.pattern + ' · ' : '') + r.value : '');
 
-let RULES = null, DUR = 'شبه دائمة';
+let RULES = null, DUR = 'شبه دائمة', GROUPS = [], RVIEW = 'cover';
 async function loadRules() {
   $('rulesMsg').textContent = 'جارٍ التحميل...';
-  try { const o = await call('rules'); RULES = o.rows; TYPES = o.types || []; renderRules(); $('rulesMsg').textContent = ''; }
+  try { const o = await call('rules'); RULES = o.rows; TYPES = o.types || []; GROUPS = o.groups || []; renderRules(); $('rulesMsg').textContent = ''; }
   catch (e) { $('rulesMsg').textContent = e; }
 }
 const strength = r => r.active === false ? 'off' : /صلب/.test(r.level) ? 'hard' : /مرن/.test(r.level) ? 'soft' : 'none';
@@ -412,10 +421,14 @@ const ruleColor = r => { const s = strength(r); return s === 'off' ? 'off' : s =
 const deptRank = d => d === ALL ? -1 : (i => i < 0 ? 99 : i)(DEPT_ORDER.indexOf(d));
 const typeRank = n => (i => i < 0 ? 50 : i)(SHEET_TYPES.findIndex(t => t.n === n));
 function ordered(rows) {
-  const k = r => [deptRank(r.department), r.department || '', { 'بارامتر': 0, 'دور': 1, 'مادّة': 2, 'معلّم': 3 }[r.target_type] ?? 4, r.target || '', typeRank(r.ctype), r.id];
+  const k = r => [deptRank(r.department), r.department || '', { 'بارامتر': 0, 'دور': 1, 'مادّة': 2, 'ظرف': 3, 'معلّم': 4 }[r.target_type] ?? 5, r.target || '', typeRank(r.ctype), r.id];
   return [...rows].sort((a, b) => { const p = k(a), q = k(b); for (let i = 0; i < p.length; i++) if (p[i] !== q[i]) return typeof p[i] === 'string' ? p[i].localeCompare(q[i], 'ar') : p[i] - q[i]; return 0; });
 }
+// «التغطية» (teachers and the layers above them) or «القائمة» (the checklist by duration).
 function renderRules() {
+  $('rvCover').classList.toggle('on', RVIEW === 'cover'); $('rvList').classList.toggle('on', RVIEW === 'list');
+  $('coverView').classList.toggle('hidden', RVIEW !== 'cover'); $('listView').classList.toggle('hidden', RVIEW !== 'list');
+  if (RVIEW === 'cover') return renderCover();
   const all = RULES || [];
   $('durTabs').replaceChildren(...DURS.map(d => {
     const b = el('button', { className: 'ghost' + (d === DUR ? ' on' : '') }, d + ' ', el('small', { textContent: '(' + all.filter(r => r.duration === d).length + ')' }));
@@ -511,15 +524,16 @@ $('rulesReset').onclick = async () => {
 };
 
 // The builder: buttons only; only the fields the chosen type reads are shown, as the sheet locks the others.
-function builder({ rule, request, link, onSaved }) {
+// `fixed`: { tt, target, ctype } set by a card (the choosers are hidden); `onCancel`: the card closes it in place.
+function builder({ rule, request, link, onSaved, fixed, onCancel }) {
   const r = rule || {};
   const reqTeacher = request && TEACHERS.find(t => t.name === request.name);
   const st = {
-    tt: r.target_type || (link ? link.target_type : 'معلّم'),
-    target: r.target ?? (reqTeacher ? reqTeacher.nick || reqTeacher.name : ''),
-    ctype: r.ctype || '', per: parsePer(r.ctype === 'خانات محجوبة' ? (r.value || '').split(':')[1] : r.value), days: parseDays(r.ctype === 'خانات محجوبة' ? (r.value || '').split(':')[0] : r.value),
+    tt: r.target_type || (fixed ? fixed.tt : link ? link.target_type : 'معلّم'),
+    target: r.target ?? (fixed ? fixed.target : reqTeacher ? reqTeacher.nick || reqTeacher.name : ''),
+    ctype: r.ctype || (fixed ? fixed.ctype : ''), per: parsePer(r.ctype === 'خانات محجوبة' ? (r.value || '').split(':')[1] : r.value), days: parseDays(r.ctype === 'خانات محجوبة' ? (r.value || '').split(':')[0] : r.value),
     num: /^\d+$/.test(digits(r.value || '')) ? digits(r.value) : '', other: r.ctype === 'ربط السابعات' ? r.value : '', free: r.value || '',
-    level: r.level || 'صلب', weight: r.weight ?? '', active: r.active !== false, duration: r.duration || (link ? link.duration : DUR),
+    level: r.level || 'صلب', weight: r.weight ?? '', active: r.active !== false, duration: r.duration || (fixed ? durOf(fixed.tt) : link ? link.duration : DUR),
     reason: r.reason ?? (request ? request.reason : link ? link.reason : ''),
   };
   const box = el('div', { className: 'builder' });
@@ -544,9 +558,14 @@ function builder({ rule, request, link, onSaved }) {
   function draw() {
     const parts = [];
     if (request) parts.push(el('div', { className: 'meta', textContent: 'من طلب ' + nickOf(request.name) + ': ' + request.request }));
-    parts.push(lbl('نوع الهدف'), chips(['معلّم', 'مادّة', 'دور', 'بارامتر'], st.tt, v => { if (st.tt !== v) { st.tt = v; st.target = ''; st.ctype = ''; } }));
+    if (!fixed) {
+    parts.push(lbl('نوع الهدف'), chips(['معلّم', 'مادّة', 'دور', 'بارامتر', ...(GROUPS.length || st.tt === 'ظرف' ? ['ظرف'] : [])], st.tt, v => { if (st.tt !== v) { st.tt = v; st.target = ''; st.ctype = ''; } }));
     parts.push(lbl('الهدف'));
-    if (st.tt === 'معلّم') {
+    if (st.tt === 'ظرف') {
+      const s = select(GROUPS.map(g => g.name), st.target, 'اختر الظرف'); s.onchange = () => { st.target = s.value; preview(); };
+      if (st.target && !GROUPS.some(g => g.name === st.target)) s.append(el('option', { value: st.target, textContent: st.target }));
+      s.value = st.target; parts.push(s);
+    } else if (st.tt === 'معلّم') {
       const s = el('select', {}, el('option', { value: '', textContent: 'اختر المعلّم' }), ...depts().map(d => el('optgroup', { label: d },
         ...TEACHERS.filter(t => t.department === d).map(t => el('option', { value: t.nick || t.name, textContent: t.nick || t.name })))));
       if (st.target && ![...s.options].some(o => o.value === st.target)) s.append(el('option', { value: st.target, textContent: st.target }));
@@ -557,11 +576,14 @@ function builder({ rule, request, link, onSaved }) {
       parts.push(s);
     } else if (st.tt === 'دور') parts.push(chips(ROLES, st.target, v => { st.target = v; }));
     else { const i = el('input', { value: st.target, placeholder: 'اسم البارامتر كما في ورقة «القيود»', maxLength: 200 }); i.oninput = () => { st.target = i.value.trim(); preview(); }; parts.push(i); }
+    }
 
-    parts.push(lbl('نوع القيد'));
-    if (st.tt === 'بارامتر') st.ctype = 'بارامتر';
+    if (!fixed) parts.push(lbl('نوع القيد'));
+    if (fixed) { /* the card chose the type */ }
+    else if (st.tt === 'بارامتر') st.ctype = 'بارامتر';
     else {
-      const list = [...SHEET_TYPES.filter(t => t.for.includes(st.tt)), ...TYPES.filter(t => t.targets.split('،').includes(st.tt)).map(t => ({ g: 'مقترحة', n: t.name }))];
+      const tf = ttFor(st.tt);
+      const list = [...SHEET_TYPES.filter(t => t.for.includes(tf)), ...TYPES.filter(t => t.targets.split('،').includes(tf)).map(t => ({ g: 'مقترحة', n: t.name }))];
       if (st.ctype && !list.some(t => t.n === st.ctype)) list.push({ g: 'مقترحة', n: st.ctype });
       for (const g of [...new Set(list.map(t => t.g))]) parts.push(el('div', { className: 'gname', textContent: g }), chips(list.filter(t => t.g === g).map(t => t.n), st.ctype, v => { st.ctype = v; }));
       // A type the sheet does not have yet: named here, tagged 🆕 until the sheet's developer adds it.
@@ -577,8 +599,8 @@ function builder({ rule, request, link, onSaved }) {
           if (!n) return (tmsg.textContent = 'اكتب اسم النوع');
           ok.disabled = true;
           try {
-            await call('type_save', { name: n, targets: [st.tt], explain: explain.value.trim() });
-            TYPES = TYPES.filter(t => t.name !== n).concat({ name: n, targets: st.tt, explain: explain.value.trim() });
+            await call('type_save', { name: n, targets: [ttFor(st.tt)], explain: explain.value.trim() });
+            TYPES = TYPES.filter(t => t.name !== n).concat({ name: n, targets: ttFor(st.tt), explain: explain.value.trim() });
             st.ctype = n; st.newType = false; toast('حُفظ النوع ✓'); draw();
           } catch (e) { tmsg.textContent = e; ok.disabled = false; }
         };
@@ -623,8 +645,8 @@ function builder({ rule, request, link, onSaved }) {
     const save = el('button', { type: 'button', textContent: 'حفظ القيد' });
     const saveLink = el('button', { type: 'button', className: 'ghost', textContent: 'حفظ وإضافة قيد مرتبط' });
     const cancel = el('button', { type: 'button', className: 'ghost', textContent: 'إلغاء' });
-    save.onclick = () => submit(false); saveLink.onclick = () => submit(true); cancel.onclick = closeScreen;
-    parts.push(el('div', { className: 'row' }, save, rule ? null : saveLink, cancel, fmsg));
+    save.onclick = () => submit(false); saveLink.onclick = () => submit(true); cancel.onclick = onCancel || closeScreen;
+    parts.push(el('div', { className: 'row' }, save, rule || fixed ? null : saveLink, cancel, fmsg));
     box.replaceChildren(...parts);
     preview();
   }
@@ -659,7 +681,7 @@ function builder({ rule, request, link, onSaved }) {
       if (onSaved) onSaved();
       // The second constraint of a pair (e.g. two teachers whose last periods must not meet) takes this screen's place.
       if (another) openScreen('قيد مرتبط', builder({ link: (RULES || []).find(x => x.id === o.id) || { id: o.id, ...f } }));
-      else closeScreen();
+      else if (!fixed) closeScreen();
     } catch (e) { fmsg.textContent = e; box.querySelectorAll('button').forEach(b => { b.disabled = false; }); }
   }
   draw();
@@ -716,6 +738,7 @@ const EXPORT_HEAD = ['م', ...SHEET_COLS, 'المدة', 'الوسم', 'القس�
 $('rulesCsv').onclick = async () => {
   if (!RULES) await loadRules();
   const rows = DURS.flatMap(d => ordered((RULES || []).filter(r => r.duration === d && r.target_type !== 'بارامتر')))
+    .flatMap(r => r.target_type === 'ظرف' ? membersOf(r.target).map(m => ({ ...r, target_type: 'معلّم', target: m, reason: r.reason + ' (ظرف: ' + r.target + ')', department: (teacherOf(m) || {}).department || r.department })) : [r])
     .map((r, i) => [i + 1, ...rowOf(r), r.duration, r.sheet_state, r.department, (TYPES.find(t => t.name === r.ctype) || {}).explain || '']);
   const csv = '﻿' + [EXPORT_HEAD, ...rows].map(r => r.map(q).join(',')).join('\r\n');
   const a = el('a', { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })), download: 'قيود_المنصة_' + new Date().toISOString().slice(0, 10) + '.csv' });
@@ -758,9 +781,12 @@ $('sheetFile').onchange = async () => {
     const states = {}, used = new Set();
     for (const r of RULES) {
       if (r.target_type === 'بارامتر') continue;
-      const k = keyOf(r.target, r.ctype, r.value), hit = byKey.get(k);
-      const next = hit ? (fold(hit['مفعَّل']) === fold('نعم') ? 'مسجّل' : 'خامل') : isProposed(r.ctype) && !sheetTypes.has(fold(r.ctype)) ? 'نوع مقترح' : 'غير مسجّل';
-      if (hit) used.add(k);
+      // A circumstance: registered when every member has the row, idle when one of them has it switched off.
+      const ks = r.target_type === 'ظرف' ? membersOf(r.target).map(m => keyOf(m, r.ctype, r.value)) : [keyOf(r.target, r.ctype, r.value)];
+      const hits = ks.map(k => byKey.get(k));
+      const all = ks.length && hits.every(Boolean);
+      const next = all ? (hits.every(h => fold(h['مفعَّل']) === fold('نعم')) ? 'مسجّل' : 'خامل') : isProposed(r.ctype) && !sheetTypes.has(fold(r.ctype)) ? 'نوع مقترح' : 'غير مسجّل';
+      ks.forEach((k, i) => { if (hits[i]) used.add(k); });
       if (next !== r.sheet_state) states[r.id] = next;
     }
     const n = Object.keys(states).length;
@@ -806,4 +832,283 @@ function showReport(total, changed, missing) {
     ...(missing.length ? [el('div', { className: 'field', style: 'margin-top:8px' }, el('b', { textContent: 'في الشيت وليس في المنصة (' + missing.length + '):' })), list] : []),
     el('div', { className: 'row' }, missing.length ? all : null, close));
   openScreen('تقرير الاستيراد', box);
+}
+
+// ---- Coverage and the week grid (spec 2026-10-12): layers (subject, role, circumstance) above each teacher ----
+// What the sheet «المعلمون» says of a teacher (imported by hand): subjects, and the roles its columns give.
+const ROLE_OF_CAT = { 'رئيس قسم بقيود صلبة': 'رؤساء الأقسام', 'معلم بقيود إدارية': 'إداريّون' };
+const rolesOf = t => [ROLE_OF_CAT[t.category], t.wing_sup ? 'مشرفو الأجنحة' : ''].filter(Boolean);
+const subjectsOf = t => [t.subject, t.subject2].filter(Boolean);
+const nickT = t => t.nick || t.name;
+const sameName = (a, b) => fold(a).replace(/\s+/g, '') === fold(b).replace(/\s+/g, '');
+const membersOf = g => ((GROUPS.find(x => x.name === g) || {}).members || '').split('،').filter(Boolean);
+const groupsOf = t => GROUPS.filter(g => membersOf(g.name).some(m => sameName(m, nickT(t)))).map(g => g.name);
+const sourcesOf = t => [...subjectsOf(t).map(s => ['مادّة', s]), ...rolesOf(t).map(s => ['دور', s]), ...groupsOf(t).map(s => ['ظرف', s])];
+const rowsOf = (tt, target) => (RULES || []).filter(r => r.target_type === tt && (tt === 'معلّم' ? sameName(r.target, target) : r.target === target));
+const inheritedOf = t => sourcesOf(t).flatMap(([tt, s]) => rowsOf(tt, s)).filter(r => r.active !== false);
+const teachersIn = (tt, target) => TEACHERS.filter(t => tt === 'مادّة' ? subjectsOf(t).includes(target) : tt === 'دور' ? rolesOf(t).includes(target) : groupsOf(t).includes(target));
+const synced = () => TEACHERS.some(t => t.subject);
+
+$('rvCover').onclick = () => { RVIEW = 'cover'; renderRules(); };
+$('rvList').onclick = () => { RVIEW = 'list'; renderRules(); };
+
+function renderCover() {
+  const all = RULES || [];
+  const chip = (tt, target, label, n) => {
+    const b = el('button', { type: 'button', className: 'chip' + (n ? ' has' : '') }, label, n ? el('small', { textContent: ' (' + n + ')' }) : null);
+    b.onclick = () => openScreen(tt + ': ' + target, gridPage(tt, target));
+    return b;
+  };
+  const used = new Set(TEACHERS.flatMap(subjectsOf));
+  const subjects = SUBJECTS.map(x => x.s).filter(s => used.has(s) || rowsOf('مادّة', s).length || !synced());
+  const addGroup = el('button', { type: 'button', className: 'chip', textContent: '+ ظرف', style: 'border-style:dashed' });
+  addGroup.onclick = () => openScreen('ظرف جديد', groupForm(null));
+  const layers = el('div', { className: 'card', style: 'padding:12px' },
+    el('div', { className: 'layer' }, el('b', { textContent: 'المواد' }), el('div', { className: 'chips' }, ...subjects.map(s => chip('مادّة', s, s, rowsOf('مادّة', s).length)))),
+    el('div', { className: 'layer' }, el('b', { textContent: 'الأدوار' }), el('div', { className: 'chips' }, ...ROLES.map(s => chip('دور', s, s, rowsOf('دور', s).length)))),
+    el('div', { className: 'layer', style: 'margin-bottom:0' }, el('b', { textContent: 'الظروف' }), el('div', { className: 'chips' }, ...GROUPS.map(g => chip('ظرف', g.name, g.name, rowsOf('ظرف', g.name).length)), addGroup)));
+  // Every teacher: inherited · own; red = nothing, yellow = inherited only, green = has own rows.
+  const byDept = new Map();
+  for (const t of TEACHERS) { if (!byDept.has(t.department)) byDept.set(t.department, []); byDept.get(t.department).push(t); }
+  const depts = [...byDept.keys()].sort((a, b) => deptRank(a) - deptRank(b) || a.localeCompare(b, 'ar'));
+  let none = 0;
+  const lines = depts.flatMap(d => [el('div', { className: 'grp', textContent: d }), ...byDept.get(d).sort((a, b) => nickT(a).localeCompare(nickT(b), 'ar')).map(t => {
+    const inh = inheritedOf(t).length, own = rowsOf('معلّم', nickT(t)).length;
+    if (!inh && !own) none++;
+    const line = el('div', { className: 'tline ' + (own ? 'cov2' : inh ? 'cov1' : 'cov0') },
+      el('span', { className: 'nm', textContent: nickT(t) }), el('span', { className: 'ct', textContent: 'موروث ' + inh + ' · خاص ' + own }));
+    line.onclick = () => openScreen('بطاقة ' + nickT(t), gridPage('معلّم', nickT(t)));
+    return line;
+  })]);
+  const imp = el('button', { type: 'button', className: 'ghost', textContent: 'استيراد CSV المعلمين' });
+  const file = el('input', { type: 'file', accept: '.csv,text/csv', className: 'hidden' });
+  imp.onclick = () => file.click();
+  file.onchange = () => { const f = file.files[0]; file.value = ''; if (f) importTeachers(f); };
+  $('coverView').replaceChildren(...[layers,
+    synced() ? null : el('div', { className: 'card hint', style: 'margin-top:0', textContent: 'لم تُستورد ورقة «المعلمون» بعد: لا تعرف المنصة مادة المعلم ولا دوره، فلا وراثة إلا من الظروف. صدّرها من الشيت CSV واضغط «استيراد CSV المعلمين».' }),
+    el('div', { className: 'card', style: 'padding:12px' },
+      el('div', { className: 'row', style: 'margin:0;justify-content:space-between' }, el('span', { className: 'meta', textContent: 'المعلمون ' + TEACHERS.length + ' · بلا قيد ' + none }), imp, file),
+      el('div', { className: 'legend' }, el('span', { textContent: 'لا قيد', style: '--c:#fadcdc' }), el('span', { textContent: 'موروث فقط', style: '--c:#fff1cc' }), el('span', { textContent: 'له قيد خاص', style: '--c:#e2f4e8' })),
+      ...lines)].filter(Boolean));
+}
+
+// The sheet «المعلمون» → subjects, category and wing supervisor here (by User ID, then the nick).
+async function importTeachers(f) {
+  try {
+    const rows = parseCsv(await f.text());
+    const head = (rows.shift() || []).map(h => fold(h).trim());
+    const col = n => head.indexOf(fold(n));
+    if (col('اسم الشهرة') < 0 || col('المادة') < 0) throw 'الملف ليس ملف ورقة «المعلمون»: لا عمودَي «اسم الشهرة» و«المادة»';
+    const get = (row, n) => { const i = col(n); return i < 0 ? '' : String(row[i] ?? '').trim(); };
+    const list = rows.map(row => ({ nick: get(row, 'اسم الشهرة'), uid: get(row, 'User ID'), subject: get(row, 'المادة'), subject2: get(row, 'مادة ثانية'),
+      category: get(row, 'الفئة'), wing_sup: fold(get(row, 'مشرف جناح؟')) === fold('نعم') })).filter(x => x.nick);
+    const o = await call('teachers_sync', { rows: list });
+    const fresh = await call('login');
+    TEACHERS = fresh.teachers || TEACHERS;
+    const absent = TEACHERS.filter(t => !list.some(x => (x.uid && x.uid === t.uid) || x.nick === t.nick)).map(nickT);
+    renderRules();
+    openScreen('تقرير استيراد المعلمين', el('div', {},
+      el('div', { textContent: 'في الملف ' + list.length + ' معلماً · حُدِّث ' + o.n + '.' }),
+      o.missing.length ? el('div', { className: 'field' }, el('b', { textContent: 'في الشيت وليس في المنصة (' + o.missing.length + '):' }), el('p', { textContent: o.missing.join('، ') })) : null,
+      absent.length ? el('div', { className: 'field' }, el('b', { textContent: 'في المنصة وليس في الملف (' + absent.length + '):' }), el('p', { textContent: absent.join('، ') })) : null));
+    toast('حُدِّث المعلمون ✓');
+  } catch (e) { toast(e, true); }
+}
+
+// A circumstance: its name, members (teachers) and a note.
+function groupForm(g) {
+  let members = g ? membersOf(g.name) : [];
+  const name = el('input', { value: g ? g.name : '', placeholder: 'اسم الظرف (مثل: ظرف صحي)', maxLength: 120 });
+  const note = el('textarea', { value: g ? g.note : '', placeholder: 'ملاحظة (اختيارية)', maxLength: 2000 });
+  const box = el('div');
+  const pick = el('select');
+  const draw = () => {
+    pick.replaceChildren(el('option', { value: '', textContent: '+ أضف معلماً' }), ...[...new Set(TEACHERS.map(t => t.department))].sort((a, b) => deptRank(a) - deptRank(b)).map(d =>
+      el('optgroup', { label: d }, ...TEACHERS.filter(t => t.department === d && !members.includes(nickT(t))).map(t => el('option', { value: nickT(t), textContent: nickT(t) })))));
+    box.replaceChildren(...members.map(m => { const b = el('button', { type: 'button', className: 'chip on', textContent: m + ' ✕' }); b.onclick = () => { members = members.filter(x => x !== m); draw(); }; return b; }));
+  };
+  pick.onchange = () => { if (pick.value) members.push(pick.value); draw(); };
+  draw();
+  const save = el('button', { type: 'button', textContent: 'حفظ' });
+  const cancel = el('button', { type: 'button', className: 'ghost', textContent: 'إلغاء' });
+  const fmsg = el('span', { className: 'meta' });
+  cancel.onclick = closeScreen;
+  save.onclick = async () => {
+    const f = { old: g ? g.name : '', name: name.value.trim(), members, note: note.value.trim() };
+    if (!f.name) return (fmsg.textContent = 'اكتب اسم الظرف');
+    save.disabled = true;
+    try {
+      await call('group_save', f);
+      if (g) { (RULES || []).forEach(r => { if (r.target_type === 'ظرف' && r.target === g.name) r.target = f.name; }); Object.assign(g, { name: f.name, members: members.join('،'), note: f.note }); }
+      else GROUPS.push({ name: f.name, members: members.join('،'), note: f.note });
+      toast('حُفظ ✓'); closeScreen();
+    } catch (e) { fmsg.textContent = e; save.disabled = false; }
+  };
+  const del = g ? delButton('حذف الظرف', async () => { await call('group_delete', { name: g.name }); GROUPS = GROUPS.filter(x => x !== g); toast('حُذف ✓'); closeScreen(); }) : null;
+  return el('div', { className: 'cform' }, name, el('div', { className: 'lbl', textContent: 'الأعضاء', style: 'font-weight:700;color:var(--navy);font-size:14px;margin:10px 0 5px' }),
+    el('div', { className: 'chips' }, box), el('div', { style: 'margin-top:6px' }, pick), note, el('div', { className: 'row' }, save, cancel, del, fmsg));
+}
+
+// The page of one target: its week grid (sheet types «لا حصّة» and «خانات محجوبة»), then its other types.
+function gridPage(tt, target) {
+  const page = el('div', { className: 'builder' });
+  const rows = rowsOf(tt, target);
+  const managed = rows.filter(Grid.managed);
+  const cells = new Map(Grid.fromRows(managed));
+  const t = tt === 'معلّم' ? teacherOf(target) || TEACHERS.find(x => sameName(nickT(x), target)) : null;
+  // Inherited cells (a teacher's card): the strongest of its layers, with where it comes from.
+  const inh = new Map();
+  const inhRows = t ? inheritedOf(t) : [];
+  for (const r of inhRows.filter(Grid.managed)) for (const k of Grid.cellsOf(r)) {
+    const o = inh.get(k), c = { lv: r.level, w: r.level === 'مرن موزون' ? r.weight : null, src: r.target_type + ': ' + r.target };
+    if (!o || Grid.rank(c) > Grid.rank(o)) inh.set(k, c);
+  }
+  const onlyCols = tt === 'دور'; // the sheet takes only «لا حصّة» for a role: whole periods
+  let weight = 50, duration = durOf(tt), warn7 = false;
+  const note = el('textarea', { placeholder: 'ملاحظة (سبب القيد) — تُنسخ إلى كل صف جديد، وتُعدَّل لكل صف من «⋯»', maxLength: 3000 });
+  const grid = el('div'), pv = el('div', { className: 'pv plan' }), fmsg = el('span', { className: 'meta' });
+  const HARD = { lv: 'صلب', w: null };
+  const soft = w => ({ lv: 'مرن موزون', w });
+  // A tap: hard → soft → clear; the seventh the other way round (soft 100 first; hard is for an administrative decision).
+  const next = (c, p) => {
+    const first = p === 7 ? soft(100) : HARD, second = p === 7 ? HARD : soft(weight);
+    return !c ? first : c.lv === first.lv ? second : null;
+  };
+  const set = (k, v, p) => { if (v) cells.set(k, v); else cells.delete(k); if (v && v.lv === 'صلب' && p === 7) warn7 = true; };
+  const locked = k => inh.has(k) && !cells.has(k);
+  function drawGrid() {
+    const head = el('tr', {}, el('th', { className: 'd' }), ...Grid.PERIODS.map(p => {
+      const b = el('button', { type: 'button', textContent: p, title: 'الحصة ' + p + ' في كل الأيام' });
+      b.onclick = () => {
+        const v = next(cells.get(Grid.key(0, p)), p);
+        Grid.DAYS.forEach((_, d) => { const k = Grid.key(d, p); if (!locked(k)) set(k, v, p); });
+        draw();
+      };
+      return el('th', {}, b);
+    }));
+    const body = Grid.DAYS.map((day, d) => el('tr', {}, el('th', { className: 'd', textContent: day }), ...Grid.PERIODS.map(p => {
+      const k = Grid.key(d, p), c = cells.get(k), i = inh.get(k);
+      const b = el('button', { type: 'button' });
+      if (c) { b.className = c.lv === 'صلب' ? 'hard' : 'soft'; b.textContent = c.lv === 'صلب' ? '✕' : c.w ?? '؟'; }
+      else if (i) { b.className = 'inh ' + (i.lv === 'صلب' ? 'ih' : 'is'); b.textContent = '🔒'; b.title = 'من ' + i.src; }
+      b.disabled = onlyCols || locked(k);
+      b.onclick = () => { set(k, next(c, p), p); draw(); };
+      return el('td', {}, b);
+    })));
+    grid.replaceChildren(el('table', { className: 'wk' }, head, ...body));
+  }
+  const fmt = r => r.ctype + ' — ' + r.value + ' 〔' + (r.level === 'مرن موزون' ? 'مرن موزون ' + (r.weight ?? '؟') : r.level) + '〕';
+  function drawPlan() {
+    const p = Grid.plan(managed, cells, tt);
+    const lines = [...p.del.map(r => el('div', { className: 'del', textContent: '− احذف: ' + fmt(r) })),
+      ...p.add.map(r => el('div', { className: 'add', textContent: '+ أضف: ' + fmt(r) }))];
+    pv.replaceChildren(...[el('b', { textContent: 'ورقة «القيود»' + (lines.length ? ' بعد الحفظ:' : ': لا تغيير') }), ...lines,
+      p.keep.length ? el('div', { className: 'keep', textContent: 'تبقى كما هي: ' + p.keep.length + (p.keep.length === 1 ? ' صف' : ' صفوف') }) : null,
+      warn7 ? el('div', { style: 'color:var(--err);font-weight:700', textContent: '⚠️ الصلب في السابعة للقرار الإداري فقط: كل منع صلب منها ينقلها «سابعة ثانية» إلى زميل.' }) : null].filter(Boolean));
+    return p;
+  }
+  const chipsRow = (vals, cur, onPick) => el('div', { className: 'chips' }, ...vals.map(([v, label]) => {
+    const b = el('button', { type: 'button', className: 'chip' + (String(cur) === String(v) ? ' on' : ''), textContent: label });
+    b.onclick = () => { onPick(v); draw(); };
+    return b;
+  }));
+  const opts = el('div');
+  function drawOpts() {
+    const w = el('input', { className: 'w', type: 'number', inputMode: 'numeric', min: 0, value: weight, style: 'width:90px;padding:6px 8px;text-align:center' });
+    w.oninput = () => { weight = w.value === '' ? null : Number(w.value); };
+    opts.replaceChildren(
+      el('div', { className: 'lbl', textContent: 'وزن الخانات المرنة الجديدة' }),
+      el('div', { className: 'row', style: 'margin-top:0' }, chipsRow([[10, '10 خفيف'], [30, '30'], [50, '50 عادي'], [100, '100 قوي'], [300, '300 قوي جداً']], weight, v => { weight = v; }), w),
+      el('div', { className: 'lbl', textContent: 'المدة (للصفوف الجديدة)' }), chipsRow(DURS.map(d => [d, d]), duration, v => { duration = v; }));
+  }
+  function draw() { drawGrid(); drawPlan(); drawOpts(); }
+  const save = el('button', { type: 'button', textContent: 'حفظ' });
+  const cancel = el('button', { type: 'button', className: 'ghost', textContent: 'رجوع' });
+  cancel.onclick = closeScreen;
+  save.onclick = async () => {
+    const p = drawPlan();
+    if (!p.add.length && !p.del.length) return (fmsg.textContent = 'لا تغيير');
+    if (p.add.some(r => r.level === 'مرن موزون' && (r.weight === null || !(r.weight >= 0)))) return (fmsg.textContent = 'اكتب الوزن');
+    if (p.add.length && !note.value.trim()) return (fmsg.textContent = 'الملاحظة (السبب) إلزامية');
+    const add = p.add.map(r => {
+      const f = { target_type: tt, target, ctype: r.ctype, pattern: '', value: r.value, level: r.level, weight: r.weight, active: true,
+        duration, reason: note.value.trim(), department: deptOf(tt, target), sheet_state: 'غير مسجّل', link_id: null };
+      return { ...f, text: lineOf(f) };
+    });
+    save.disabled = true; fmsg.textContent = 'جارٍ الحفظ...';
+    try {
+      const o = await call('grid_save', { target_type: tt, target, del: p.del.map(r => r.id), add });
+      const gone = new Set(p.del.map(r => r.id));
+      RULES = RULES.filter(r => !gone.has(r.id)).concat(add.map((f, i) => ({ id: o.ids[i], created_at: new Date().toISOString(), request_id: null, checked: false, ...f })));
+      toast('حُفظ ✓');
+      openScreen($('scrTitle').textContent, gridPage(tt, target));
+    } catch (e) { fmsg.textContent = e; save.disabled = false; }
+  };
+
+  // Above the grid: who this is, and what it inherits.
+  const head = [];
+  if (t) {
+    const src = sourcesOf(t);
+    head.push(el('div', { className: 'meta', textContent: [t.department, ...subjectsOf(t)].filter((x, i, a) => a.indexOf(x) === i).join(' · ') }),
+      el('div', { className: 'hint', style: 'margin-top:4px' }, el('b', { textContent: 'يرث من: ' }), src.length ? src.map(([a, b]) => a + ' ' + b).join(' · ') : (synced() ? 'لا شيء' : 'لا شيء (لم تُستورد ورقة «المعلمون»)')));
+  } else if (tt !== 'معلّم') {
+    const ms = teachersIn(tt, target).map(nickT);
+    head.push(el('div', { className: 'hint', style: 'margin-top:0' }, el('b', { textContent: 'يسري على ' + ms.length + ': ' }), ms.join('، ') || (tt === 'ظرف' ? 'لا أعضاء بعد' : synced() ? 'لا أحد' : 'غير معروف (لم تُستورد ورقة «المعلمون»)')));
+    if (tt === 'ظرف') {
+      const g = GROUPS.find(x => x.name === target);
+      const edit = el('button', { type: 'button', className: 'ghost', textContent: '✏️ الاسم والأعضاء' });
+      edit.onclick = () => openScreen('تعديل الظرف', groupForm(g));
+      head.push(el('div', { className: 'row', style: 'margin-top:6px' }, edit), g && g.note ? el('div', { className: 'meta', textContent: g.note }) : null);
+    }
+  }
+  const legend = el('div', { className: 'legend' }, el('span', { textContent: 'صلب ✕', style: '--c:#f4c7c3' }), el('span', { textContent: 'مرن (الرقم = الوزن)', style: '--c:#cdebd8' }),
+    t ? el('span', { textContent: '🔒 موروث', style: '--c:#e9edf1' }) : null);
+  const hint = el('div', { className: 'hint', textContent: onlyCols
+    ? 'الدور لا يقبل في الشيت إلا «لا حصّة»: اضغط رقم الحصة لتحجبها كل الأيام (لمسة = صلب، الثانية = مرن، الثالثة ترفع الحجب).'
+    : 'لمسة = صلب، الثانية = مرن، الثالثة ترفع الحجب؛ والسابعة: مرن 100 أولاً. رقم الحصة يحجب العمود كله.' });
+  // Rows of the two grid types the grid does not take (switched off, or a value it cannot read): kept as they are.
+  const other = rows.filter(r => Grid.MANAGED.includes(r.ctype) && !Grid.managed(r));
+  // Inherited rows of the other types, read-only, with their source.
+  const inhOther = inhRows.filter(r => !Grid.MANAGED.includes(r.ctype));
+  page.append(...[...head, legend, hint, grid,
+    other.length ? el('div', { className: 'tsec' }, el('b', { textContent: 'صفوف لا تقرؤها الشبكة (تبقى كما هي)' }), ...other.map(miniRule)) : null,
+    inh.size ? el('div', { className: 'meta', style: 'margin-top:6px' }, '🔒 ', [...new Set([...inh.values()].map(c => c.src))].join(' · ')) : null,
+    opts, el('div', { className: 'lbl', textContent: 'ملاحظة', style: 'font-weight:700;color:var(--navy);font-size:14px;margin:10px 0 5px' }), note, pv,
+    el('div', { className: 'row' }, save, cancel, fmsg),
+    inhOther.length ? el('div', { className: 'tsec' }, el('b', { textContent: '🔒 موروث من أنواع أخرى' }), ...inhOther.map(r => miniRule(r, true))) : null,
+    ...typeSections(tt, target, rows)].filter(Boolean));
+  draw();
+  return page;
+}
+// A constraint line on a card: its type, value and binding; «⋯» opens its details (not ticked off here).
+function miniRule(r, withTarget) {
+  const more = el('button', { type: 'button', className: 'more', textContent: '⋯', title: 'التفاصيل' });
+  more.onclick = () => openScreen('تفاصيل القيد', ruleDetail(r));
+  const lvl = levelText(r);
+  return el('div', { className: 'rule ' + ruleColor(r), style: 'cursor:default' }, el('div', { className: 'top' },
+    el('span', { className: 'ct', textContent: (isProposed(r.ctype) ? '🆕 ' : '') + r.ctype }),
+    el('span', { className: 'tx' }, withTarget ? el('b', { textContent: targetText(r) + ' ' }) : null, r.pattern ? r.pattern + ' · ' : '', r.value || ''),
+    lvl ? el('span', { className: 'lv ' + strength(r), textContent: lvl }) : null, r.active === false ? el('span', { className: 'meta', textContent: 'غير مفعَّل' }) : null,
+    el('span', { className: 'st', textContent: STATE_ICON[r.sheet_state] || '', title: r.sheet_state }), more));
+}
+// The other sheet types of the target, one line each: its rows, and «+» to add one in place.
+function typeSections(tt, target, rows) {
+  const tf = ttFor(tt);
+  const types = [...SHEET_TYPES.filter(x => x.for.includes(tf) && !Grid.MANAGED.includes(x.n)).map(x => ({ n: x.n, h: x.h })),
+    ...TYPES.filter(x => x.targets.split('،').includes(tf)).map(x => ({ n: x.name, h: x.explain || 'نوع مقترح', proposed: true }))];
+  if (!types.length) return [];
+  return [el('div', { className: 'lbl', textContent: 'أنواع أخرى', style: 'font-weight:700;color:var(--navy);font-size:15px;margin:16px 0 4px' }), ...types.map(x => {
+    const mine = rows.filter(r => r.ctype === x.n);
+    const sec = el('div', { className: 'tsec' });
+    const add = el('button', { type: 'button', className: mine.length ? 'ghost' : '', textContent: mine.length ? '+ آخر' : 'تشغيل', style: 'padding:4px 12px;font-size:14px' });
+    const slot = el('div');
+    add.onclick = () => {
+      add.disabled = true;
+      slot.replaceChildren(builder({ fixed: { tt, target, ctype: x.n }, onCancel: () => { slot.replaceChildren(); add.disabled = false; },
+        onSaved: () => openScreen($('scrTitle').textContent, gridPage(tt, target)) }));
+    };
+    sec.append(el('div', { className: 'hd' }, el('b', { textContent: (x.proposed ? '🆕 ' : '') + x.n }), add),
+      el('div', { className: 'meta', textContent: x.h }), ...mine.map(r => miniRule(r)), slot);
+    return sec;
+  })];
 }

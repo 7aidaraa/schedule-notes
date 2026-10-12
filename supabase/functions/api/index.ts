@@ -48,7 +48,8 @@ async function deleteRequest(id: string) {
 }
 
 // A constraint in the sheet's terms (sheet «القيود», section three, columns A–I) plus the platform's own fields.
-const TARGET_TYPES = ["معلّم", "مادّة", "دور", "بارامتر"];
+// «ظرف»: a group of teachers the platform names; exported as one «معلّم» row per member (the sheet has no such target).
+const TARGET_TYPES = ["معلّم", "مادّة", "دور", "بارامتر", "ظرف"];
 const DURATIONS = ["دائمة", "شبه دائمة", "مؤقتة"];
 const STATES = ["مسجّل", "خامل", "غير مسجّل", "نوع مقترح"];
 function cleanRule(b: Record<string, any>) {
@@ -81,7 +82,9 @@ Deno.serve(async (req) => {
   if (action === "login") {
     // Department → teacher names for the form's lists, and which names already have a number in the phone book
     // (its last four digits only: the teachers share one password).
-    const { data } = await db.from("teachers").select("name,department,nick").order("department").order("name");
+    // The developer also gets what the sheet «المعلمون» says of each teacher: subjects, category, wing supervisor.
+    const cols = role === "admin" ? "name,department,nick,uid,subject,subject2,category,wing_sup" : "name,department,nick";
+    const { data } = await db.from("teachers").select(cols).order("department").order("name");
     const { data: book } = await db.from("contacts").select("name,phone");
     const phones = Object.fromEntries((book ?? []).filter((c) => c.phone).map((c) => [c.name, String(c.phone).slice(-4)]));
     return json({ role, teachers: data ?? [], phones });
@@ -140,7 +143,8 @@ Deno.serve(async (req) => {
     // Rows from before the sheet-terms template (no target type) stay in the table, unshown.
     const { data, error } = await db.from("constraints").select(RULE_COLS).neq("target_type", "").order("id");
     const { data: types, error: e2 } = await db.from("constraint_types").select("name,targets,explain").order("created_at");
-    return error || e2 ? fail("تعذر جلب القيود", 500) : json({ rows: data, types });
+    const { data: groups, error: e3 } = await db.from("constraint_groups").select("name,members,note").order("created_at");
+    return error || e2 || e3 ? fail("تعذر جلب القيود", 500) : json({ rows: data, types, groups });
   }
   if (action === "rule_save") {
     // Edit (id) or add. `request_id`: the request it comes from, deleted (with its files) once the constraint is saved.
@@ -159,6 +163,65 @@ Deno.serve(async (req) => {
       if (e) return json({ ok: true, id: data.id, warning: "حُفظ القيد، و" + e });
     }
     return json({ ok: true, id: data.id });
+  }
+  if (action === "grid_save") {
+    // The week grid of one target: the rows it no longer needs go, the new ones come (the untouched rows are not sent).
+    const tt = TARGET_TYPES.includes(body.target_type) ? body.target_type : "", target = str(body.target, 200);
+    if (!tt || !target) return fail("الهدف مطلوب");
+    const add = (Array.isArray(body.add) ? body.add : []).slice(0, 100).map((b: Record<string, any>) => cleanRule({ ...b, target_type: tt, target }));
+    const bad = add.map(ruleError).find(Boolean);
+    if (bad) return fail(bad);
+    const del = (Array.isArray(body.del) ? body.del : []).map(Number).filter(Number.isFinite).slice(0, 200);
+    if (del.length) {
+      // Only rows of this target, of the two grid types.
+      const { error } = await db.from("constraints").delete().in("id", del).eq("target_type", tt).eq("target", target).in("ctype", ["لا حصّة", "خانات محجوبة"]);
+      if (error) return fail("تعذر الحفظ", 500);
+    }
+    if (!add.length) return json({ ok: true, ids: [] });
+    const { data, error } = await db.from("constraints").insert(add.map((r) => ({ ...r, section: "المنصة" }))).select("id");
+    return error ? fail("حُذف ما رُفع حجبه، وتعذر حفظ الجديد", 500) : json({ ok: true, ids: (data ?? []).map((r) => r.id) });
+  }
+  if (action === "group_save") {
+    // A circumstance: a named group of teachers (nicks); `old` renames it, and its constraints follow.
+    const name = str(body.name, 120), old = str(body.old, 120);
+    const members = (Array.isArray(body.members) ? body.members : []).map((m: unknown) => str(m, 120)).filter(Boolean);
+    if (!name) return fail("اسم الظرف مطلوب");
+    if (name !== old) {
+      const { data: taken } = await db.from("constraint_groups").select("name").eq("name", name).maybeSingle();
+      if (taken) return fail("الاسم مستعمل لظرف آخر");
+    }
+    const { error } = await db.from("constraint_groups").upsert({ name, members: members.join("،"), note: str(body.note, 2000) });
+    if (error) return fail("تعذر الحفظ", 500);
+    if (old && old !== name) {
+      await db.from("constraints").update({ target: name }).eq("target_type", "ظرف").eq("target", old);
+      await db.from("constraint_groups").delete().eq("name", old);
+    }
+    return json({ ok: true });
+  }
+  if (action === "group_delete") {
+    const name = str(body.name, 120);
+    const { count } = await db.from("constraints").select("id", { count: "exact", head: true }).eq("target_type", "ظرف").eq("target", name);
+    if (count) return fail("للظرف " + count + " قيد؛ احذفها أولاً");
+    const { error } = await db.from("constraint_groups").delete().eq("name", name);
+    return error ? fail("تعذر الحذف", 500) : json({ ok: true });
+  }
+  if (action === "teachers_sync") {
+    // From the sheet «المعلمون» (a file its owner exports): matched by User ID, then by the nick.
+    const rows = (Array.isArray(body.rows) ? body.rows : []).slice(0, 300);
+    const { data: all } = await db.from("teachers").select("name,nick,uid");
+    let n = 0;
+    const missing: string[] = [];
+    for (const b of rows) {
+      const uid = str(b.uid, 64), nick = str(b.nick, 120);
+      const t = (all ?? []).find((x) => uid && x.uid === uid) ?? (all ?? []).find((x) => nick && x.nick === nick);
+      if (!t) { if (nick) missing.push(nick); continue; }
+      const { error } = await db.from("teachers").update({
+        subject: str(b.subject, 80), subject2: str(b.subject2, 80), category: str(b.category, 80), wing_sup: b.wing_sup === true,
+      }).eq("name", t.name);
+      if (error) return fail("تعذر التحديث", 500);
+      n++;
+    }
+    return json({ ok: true, n, missing });
   }
   if (action === "rule_move") {
     const duration = DURATIONS.includes(body.duration) ? body.duration : "";

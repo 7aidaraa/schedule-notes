@@ -127,6 +127,31 @@
   .detailLine b { color:var(--navy); }
   .dsec { margin-top:14px; }
   .dsec > b { display:block; color:var(--mute); font-size:13px; margin-bottom:4px; }
+  /* Coverage and the week grid (spec 2026-10-12) */
+  .layer { margin-bottom:10px; }
+  .layer > b { display:block; color:var(--navy); font-size:14px; margin-bottom:5px; }
+  .chip small { color:var(--mute); font-size:12px; } .chip.on small { color:#dfeaf2; }
+  .chip.has { border-color:var(--sky); font-weight:700; }
+  .tline { display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:12px; margin-bottom:5px; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .tline .nm { flex:1; font-weight:700; color:var(--navy); }
+  .tline .ct { font-size:13px; color:var(--ink); white-space:nowrap; }
+  .tline.cov0 { background:#fadcdc; } .tline.cov1 { background:#fff1cc; } .tline.cov2 { background:#e2f4e8; }
+  .legend { display:flex; flex-wrap:wrap; gap:10px; font-size:12px; color:var(--mute); margin:6px 0; }
+  .legend span::before { content:""; display:inline-block; width:12px; height:12px; border-radius:4px; margin-inline-end:4px; vertical-align:-2px; background:var(--c); }
+  table.wk { border-collapse:separate; border-spacing:3px; width:100%; table-layout:fixed; margin-top:6px; }
+  table.wk th { font-size:13px; color:var(--mute); font-weight:700; }
+  table.wk th.d { width:64px; text-align:right; }
+  table.wk button { width:100%; height:38px; padding:0; border-radius:9px; border:1.5px solid var(--line); background:#fbfdfe; color:var(--ink); font-size:13px; font-weight:700; box-shadow:none; }
+  table.wk th button { height:28px; background:#eef3f7; color:var(--navy); }
+  table.wk button.hard { background:#f4c7c3; border-color:var(--err); color:#7d1a10; }
+  table.wk button.soft { background:#cdebd8; border-color:var(--ok); color:#0f5132; }
+  table.wk button.inh { background:repeating-linear-gradient(45deg,#e9edf1,#e9edf1 5px,#f7f9fb 5px,#f7f9fb 10px); color:var(--mute); border-style:dashed; }
+  table.wk button.inh.ih { border-color:var(--err); } table.wk button.inh.is { border-color:var(--ok); }
+  table.wk button:disabled { opacity:1; cursor:default; }
+  .plan div { margin-top:3px; } .plan .add { color:var(--ok); } .plan .del { color:var(--err); text-decoration:line-through; } .plan .keep { color:var(--mute); }
+  .tsec { margin-top:8px; padding:8px 10px; border:1px solid var(--line); border-radius:12px; background:#fff; }
+  .tsec .hd { display:flex; align-items:center; gap:8px; } .tsec .hd b { flex:1; color:var(--navy); }
+  .tsec .rule { margin:6px 0 0; }
   footer { text-align:center; color:var(--mute); font-size:13px; padding:8px 16px 28px; }
   @media (prefers-reduced-motion: reduce) { * { transition:none !important; } }
 </style>
@@ -153,6 +178,9 @@
     <div class="tabs"><button id="tabRules" class="ghost on">القيود</button><button id="tabReq" class="ghost">الطلبات</button><button id="tabBook" class="ghost">الهواتف</button></div>
 
     <div id="rules">
+      <div class="tabs sub"><button id="rvCover" class="ghost on">التغطية</button><button id="rvList" class="ghost">القائمة</button></div>
+      <div id="coverView"></div>
+      <div id="listView" class="hidden">
       <div class="tabs sub" id="durTabs"></div>
       <div class="row" style="margin:0 0 12px">
         <button id="ruleAdd">+ إضافة قيد</button>
@@ -161,6 +189,7 @@
       </div>
       <div class="row" style="margin:0 0 10px;justify-content:space-between"><span id="rulesMsg" class="meta"></span><button id="rulesReset" class="ghost" style="padding:6px 12px;font-size:14px">رفع الشطب عن الكل</button></div>
       <div id="rulesList"></div>
+      </div>
     </div>
 
     <div id="reqView" class="hidden">
