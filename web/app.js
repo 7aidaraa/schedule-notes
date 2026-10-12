@@ -191,23 +191,18 @@ $('helpBtn').onclick = () => openScreen('تعليمات', el('div', { className:
 const HELP = `سير المنصة
 ١. المعلم يرسل ملاحظته على الجدول.
 ٢. المطور يحوّلها إلى قيد بـ«حفظ القيد»، فيُحذف الطلب.
-٣. «التغطية» أول ما يُفتح: المواد والأدوار والظروف، ثم المعلمون بالقسم. أمام المعلم رقمان: موروث · خاص.
+٣. «التغطية» أول ما يُفتح: الأدوار، ثم الأقسام، ثم الظروف، ثم المعلمون بالقسم. أمام المعلم رقمان: موروث · خاص.
    أحمر = لا قيد له · أصفر = موروث فقط · أخضر = له قيد خاص.
-٤. ضغطة على مادة أو دور أو ظرف أو معلم تفتح شبكة الأسبوع: لمسة = صلب، الثانية = مرن، الثالثة ترفع الحجب
-   (والسابعة بالعكس: مرن 100 أولاً، والصلب للقرار الإداري فقط). ضغطة رقم الحصة تحجب العمود كله.
-   المخطط في البطاقة موروث من المادّة أو الدور أو الظرف، ويُعدَّل من صفحته.
-   «حفظ» يكتب الفرق وحده، والمعاينة تقول ما يُضاف إلى ورقة «القيود» وما يُحذف منها.
-٥. «القائمة»: ثلاث صفحات (دائمة، شبه دائمة، مؤقتة). ضغطة على القيد تشطبه، و«رفع الشطب عن الكل» يعيدها. «⋯» يفتح تفاصيله.
-٦. «استيراد CSV المعلمين» (في التغطية): ملف ورقة «المعلمون» من الشيت؛ منه تعرف المنصة مادة المعلم ودوره.
-٧. «تصدير CSV» يُستورد إلى ورقة «القيود بلغة عرفية (حيدر)» فقط. قيد الظرف صف لكل عضو فيه.
-٨. ورقة «القيود» في الشيت لا تكتب فيها المنصة.
-٩. «استيراد CSV القيود» يحدّث الوسوم: ✅ مسجّل · ⏸️ خامل · ⏳ غير مسجّل · 🆕 نوع مقترح.
-١٠. التحديث: اسحب الشاشة للأسفل.
-
-ملف الشيت إلى المنصة (لمطور الشيت)
-- صفوف القسم الثالث من ورقة «القيود» بترتيبها.
-- الأعمدة: نوع الهدف، الهدف، نوع القيد، النمط، القيمة، مستوى الإلزام، الوزن، مفعَّل، ملاحظة.
-- UTF-8، والصف الأول عناوين.`;
+٤. الدور والظرف: أعضاؤهما باليد (✏️ الاسم والأعضاء، أو «الأدوار والظروف» في بطاقة المعلم). الجناح دور تحت «مشرفو الأجنحة»، وعضوه يرث الاثنين.
+٥. القسم: «كل القسم» يسري على كل معلميه، وتبويب المادة على معلميها.
+٦. الشبكة: ضغطة الخانة تفتح قائمة: فارغ · صلب · مرن 10…300 · مرن بوزن تكتبه، وتحتها ثابت / ⏳ مؤقت.
+   ضغطة رقم الحصة تسري على الأيام الخمسة، وضغطة اليوم على حصصه السبع.
+   تحت الشبكة معلمو الدور أو القسم: ضغطة على المعلم تفتح شبكته.
+٧. شبكة المعلم: الموروث باهت، ومصدره في رأس قائمة الخانة. تعديله استثناء لهذا المعلم وحده (✎): «فارغ (إعفاء)» يرفعه، وغيره يحلّ محله، و«كما الموروث» يلغي الاستثناء.
+٨. «حفظ» يكتب الفرق وحده، والملاحظة (السبب) إلزامية.
+٩. «القائمة»: ثابتة ومؤقتة. ضغطة على القيد تشطبه، و«رفع الشطب عن الكل» يعيدها. تحت كل قيد خانة «صياغة الشيت» تكتبها بيدك. «⋯» للتفاصيل والوسم والنقل.
+١٠. التصدير إلى الشيت متوقف (يعود بطلب).
+١١. التحديث: اسحب الشاشة للأسفل.`;
 
 // Pull down from the top of the page: the open tab reloads (an open form is never thrown away).
 (() => {
@@ -351,7 +346,6 @@ $('bookAdd').onclick = () => openScreen('رقم جديد', contactForm(null));
 
 // ---- Constraints, in the terms of the timetable sheet «القيود» (section three, columns A–I) ----
 const DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
-const ROLES = ['رؤساء الأقسام', 'مشرفو الأجنحة', 'إداريّون'];
 // Subjects as the sheet names them, and the platform department each belongs to.
 const SUBJECTS = [['التربية الإسلامية'], ['اللغة العربية'], ['اللغة الإنجليزية'], ['اللغة الفرنسية'], ['الرياضيات'], ['الإحصاء', 'الرياضيات'],
   ['الكيمياء', 'الفيزياء والكيمياء'], ['الفيزياء', 'الفيزياء والكيمياء'], ['الأحياء', 'الأحياء والجيولوجيا'], ['الجيولوجيا', 'الأحياء والجيولوجيا'],
@@ -385,7 +379,7 @@ let TYPES = []; // proposed types: [{ name, targets, explain }]
 const typeOf = n => n === 'بارامتر' ? PARAM : SHEET_TYPES.find(t => t.n === n)
   || (TYPES.find(t => t.name === n) && { g: 'مقترحة', n, for: TYPES.find(t => t.name === n).targets.split('،'), f: ['free'], lv: 'choose', h: TYPES.find(t => t.name === n).explain || 'نوع مقترح، لم يُضف إلى الشيت بعد.', proposed: true });
 const isProposed = n => !!TYPES.find(t => t.name === n);
-const DURS = ['دائمة', 'شبه دائمة', 'مؤقتة'];
+const DURS = ['ثابتة', 'مؤقتة'];
 const STATE_ICON = { 'مسجّل': '✅', 'خامل': '⏸️', 'غير مسجّل': '⏳', 'نوع مقترح': '🆕' };
 
 // Values in the sheet's own spelling: «1، 2» · «الخميس: 7» · «الإثنين، الأربعاء».
@@ -406,13 +400,13 @@ function valueOf(st) {
   return '';
 }
 const levelOf = (st, t) => t.lv === 'choose' || t.lv === 'choose-nw' ? st.level : t.lv;
-const deptOf = (tt, target) => tt === 'معلّم' ? (teacherOf(target) || {}).department || '' : tt === 'مادّة' ? (SUBJECTS.find(x => x.s === target) || {}).d || '' : ALL;
+const deptOf = (tt, target) => tt === 'معلّم' ? (teacherOf(target) || {}).department || '' : tt === 'مادّة' ? (SUBJECTS.find(x => x.s === target) || {}).d || '' : tt === 'قسم' ? target : ALL;
 // A circumstance takes the teacher's types (its rows go to the sheet as one «معلّم» row per member).
 const ttFor = tt => tt === 'ظرف' ? 'معلّم' : tt;
-const durOf = tt => tt === 'معلّم' || tt === 'ظرف' ? 'شبه دائمة' : 'دائمة';
+const durOf = () => 'ثابتة';
 const lineOf = r => r.ctype + ': ' + r.target + (r.value ? ' — ' + (r.pattern ? r.pattern + ' · ' : '') + r.value : '');
 
-let RULES = null, DUR = 'شبه دائمة', GROUPS = [], RVIEW = 'cover';
+let RULES = null, DUR = 'ثابتة', GROUPS = [], RVIEW = 'cover';
 async function loadRules() {
   $('rulesMsg').textContent = 'جارٍ التحميل...';
   try { const o = await call('rules'); RULES = o.rows; TYPES = o.types || []; GROUPS = o.groups || []; renderRules(); $('rulesMsg').textContent = ''; }
@@ -423,7 +417,7 @@ const ruleColor = r => { const s = strength(r); return s === 'off' ? 'off' : s =
 const deptRank = d => d === ALL ? -1 : (i => i < 0 ? 99 : i)(DEPT_ORDER.indexOf(d));
 const typeRank = n => (i => i < 0 ? 50 : i)(SHEET_TYPES.findIndex(t => t.n === n));
 function ordered(rows) {
-  const k = r => [deptRank(r.department), r.department || '', { 'بارامتر': 0, 'دور': 1, 'مادّة': 2, 'ظرف': 3, 'معلّم': 4 }[r.target_type] ?? 5, r.target || '', typeRank(r.ctype), r.id];
+  const k = r => [deptRank(r.department), r.department || '', { 'بارامتر': 0, 'دور': 1, 'قسم': 2, 'مادّة': 3, 'ظرف': 4, 'معلّم': 5 }[r.target_type] ?? 5, r.target || '', typeRank(r.ctype), r.id];
   return [...rows].sort((a, b) => { const p = k(a), q = k(b); for (let i = 0; i < p.length; i++) if (p[i] !== q[i]) return typeof p[i] === 'string' ? p[i].localeCompare(q[i], 'ar') : p[i] - q[i]; return 0; });
 }
 // «التغطية» (teachers and the layers above them) or «القائمة» (the checklist by duration).
@@ -462,55 +456,87 @@ function approveBtn(r, redraw) {
   };
   return b;
 }
-// One line per constraint: a tap ticks it off (saved on the server); «⋯» opens its details.
+// The constraint in the platform's own words: «رؤساء الأقسام — لا حصّة: الأحد 1، 2 — صلب».
+const targetLabel = r => r.target_type === 'معلّم' || r.target_type === 'بارامتر' || r.target_type === 'دور' ? r.target : r.target_type + ' ' + r.target;
+function phrase(r) {
+  let what = r.ctype + (r.value ? ': ' + (r.pattern ? r.pattern + ' · ' : '') + r.value : '');
+  if (r.ctype === 'لا حصّة') what = 'لا حصّة ' + r.value + ' كل الأيام';
+  else if (r.ctype === 'خانات محجوبة') what = 'لا حصّة ' + r.value;
+  if (r.level === 'إعفاء') what = 'إعفاء من ' + what;
+  const lv = r.level === 'إعفاء' ? '' : levelText(r);
+  return [targetLabel(r), what, [lv, r.duration === 'مؤقتة' ? 'مؤقت' : ''].filter(Boolean).join(' · ')].filter(Boolean).join(' — ');
+}
+// The label's icon, once it says more than «غير مسجّل» (its ⏳ would read as «مؤقت» now).
+const stateIcon = r => r.sheet_state && r.sheet_state !== 'غير مسجّل' ? el('span', { className: 'st', textContent: STATE_ICON[r.sheet_state] || '', title: r.sheet_state }) : null;
+// One item per constraint: a tap ticks it off (saved on the server); under it, the sheet's wording written by hand; «⋯» opens its details.
 function ruleItem(r) {
   const box = el('div', { className: 'rule ' + ruleColor(r) + (r.checked ? ' done' : '') });
   const more = el('button', { type: 'button', className: 'more', textContent: '⋯', title: 'التفاصيل', ariaLabel: 'التفاصيل' });
   more.onclick = () => openScreen('تفاصيل القيد', ruleDetail(r));
-  const lvl = levelText(r);
-  // Badges on the first line, the constraint itself on a full-width line under them.
   box.append(el('div', { className: 'top' },
     el('span', { className: 'box', textContent: r.checked ? '✓' : '' }),
-    el('span', { className: 'ct', textContent: (isProposed(r.ctype) ? '🆕 ' : '') + r.ctype }),
-    el('span', { style: 'flex:1' }),
-    lvl ? el('span', { className: 'lv ' + strength(r), textContent: lvl }) : null,
-    el('span', { className: 'st', textContent: STATE_ICON[r.sheet_state] || '', title: r.sheet_state }), approveBtn(r, renderRules), more),
-    el('div', { className: 'tx line' }, el('b', { textContent: targetText(r) }),
-      r.value ? ' — ' : '', r.pattern ? r.pattern + ' · ' : '', r.value ? el('span', { className: 'v', textContent: r.value }) : null));
+    el('div', { className: 'tx' }, phrase(r)),
+    stateIcon(r), approveBtn(r, renderRules), more));
   if (r.active === false) box.append(el('div', { className: 'sub', textContent: 'غير مفعَّل' }));
+  box.append(sheetTextBox(r));
   box.onclick = async e => {
-    if (e.target.closest('button')) return;
+    if (e.target.closest('button, textarea, .stx')) return;
     r.checked = !r.checked; renderRules();
     try { await call('rule_check', { id: r.id, checked: r.checked }); }
     catch (err) { r.checked = !r.checked; renderRules(); toast(err, true); }
   };
   return box;
 }
-// The details screen: note, the sheet row, moving between pages, editing and deleting.
+// «صياغة الشيت»: written by hand, saved with its button (shown once the text changes).
+function sheetTextBox(r) {
+  const ta = el('textarea', { value: r.sheet_text || '', placeholder: 'صياغة الشيت', maxLength: 3000, rows: 1 });
+  const save = el('button', { type: 'button', className: 'hidden', textContent: 'حفظ' });
+  ta.oninput = () => save.classList.toggle('hidden', ta.value.trim() === (r.sheet_text || ''));
+  save.onclick = async () => {
+    save.disabled = true;
+    try { await call('rule_sheet_text', { id: r.id, sheet_text: ta.value.trim() }); r.sheet_text = ta.value.trim(); save.classList.add('hidden'); toast('حُفظ ✓'); }
+    catch (e) { toast(e, true); }
+    save.disabled = false;
+  };
+  return el('div', { className: 'stx' }, ta, save);
+}
+// The details screen: note, sheet wording and label, moving between pages, editing and deleting.
 function ruleDetail(r) {
   const link = r.link_id && (RULES || []).find(x => x.id === r.link_id);
+  const again = () => openScreen('تفاصيل القيد', ruleDetail(r));
   const sec = (title, ...kids) => el('div', { className: 'dsec' }, el('b', { textContent: title }), ...kids);
   const move = el('div', { className: 'chips' }, ...DURS.map(d => {
     const b = el('button', { type: 'button', className: 'chip' + (d === r.duration ? ' on' : ''), textContent: d });
     b.onclick = async () => {
       if (d === r.duration) return;
-      try { await call('rule_move', { id: r.id, duration: d }); r.duration = d; toast('نُقل إلى «' + d + '» ✓'); openScreen('تفاصيل القيد', ruleDetail(r)); }
+      try { await call('rule_move', { id: r.id, duration: d }); r.duration = d; toast('نُقل إلى «' + d + '» ✓'); again(); }
       catch (e) { toast(e, true); }
     };
     return b;
   }));
-  const edit = el('button', { type: 'button', textContent: '✏️ تعديل' });
-  edit.onclick = () => openScreen('تعديل قيد', builder({ rule: r }));
+  // The label is set by hand now that nothing is exported to the sheet.
+  const states = el('div', { className: 'chips' }, ...Object.keys(STATE_ICON).map(s => {
+    const b = el('button', { type: 'button', className: 'chip' + (s === r.sheet_state ? ' on' : ''), textContent: STATE_ICON[s] + ' ' + s });
+    b.onclick = async () => {
+      if (s === r.sheet_state) return;
+      try { await call('rules_state', { states: { [r.id]: s } }); r.sheet_state = s; toast('حُفظ ✓'); again(); }
+      catch (e) { toast(e, true); }
+    };
+    return b;
+  }));
+  // A grid row is edited on its grid; any other row in the builder.
+  const edit = el('button', { type: 'button', textContent: Grid.managed(r) ? '▦ افتح الشبكة' : '✏️ تعديل' });
+  edit.onclick = () => Grid.managed(r) ? openTarget(r.target_type, r.target) : openScreen('تعديل قيد', builder({ rule: r }));
   const del = delButton('حذف القيد', async () => { await call('rule_delete', { id: r.id }); RULES = RULES.filter(x => x !== r); toast('حُذف ✓'); closeScreen(); });
   del.textContent = '🗑️ حذف';
   return el('div', {},
-    el('div', { className: 'detailLine' }, el('span', { className: 'ct', textContent: (isProposed(r.ctype) ? '🆕 ' : '') + r.ctype, style: 'font-size:13px;font-weight:700;border:1px solid var(--line);border-radius:8px;padding:1px 7px;margin-inline-end:6px' }),
-      el('b', { textContent: targetText(r) }), r.value ? ' — ' + (r.pattern ? r.pattern + ' · ' : '') + r.value : ''),
-    el('div', { className: 'meta' }, [levelText(r), r.active === false ? 'غير مفعَّل' : '', (STATE_ICON[r.sheet_state] || '') + ' ' + r.sheet_state, r.department].filter(Boolean).join(' · ')),
+    el('div', { className: 'detailLine', textContent: phrase(r) }),
+    el('div', { className: 'meta' }, [r.active === false ? 'غير مفعَّل' : '', r.department].filter(Boolean).join(' · ')),
     link ? el('div', { className: 'meta', textContent: '🔗 مرتبط بـ: ' + lineOf(link) }) : null,
     sec('⁉️ الملاحظة', el('div', { className: 'panel', style: 'margin-top:0', textContent: r.reason || 'لا أعلم' })),
-    sec('⛓️‍💥 صف الشيت', el('div', { className: 'panel', style: 'margin-top:0' }, sheetRow(r))),
-    sec('🏛️ الإدارة', el('div', { className: 'chips' }, approveBtn(r, () => openScreen('تفاصيل القيد', ruleDetail(r))))),
+    sec('✍️ صياغة الشيت', sheetTextBox(r)),
+    sec('🏷️ الوسم', states),
+    sec('🏛️ الإدارة', el('div', { className: 'chips' }, approveBtn(r, again))),
     sec('↪️ نقل إلى', move),
     el('div', { className: 'row', style: 'margin-top:18px' }, edit, del));
 }
@@ -574,11 +600,11 @@ function builder({ rule, request, link, onSaved, fixed, onCancel }) {
     const parts = [];
     if (request) parts.push(el('div', { className: 'meta', textContent: 'من طلب ' + nickOf(request.name) + ': ' + request.request }));
     if (!fixed) {
-    parts.push(lbl('نوع الهدف'), chips(['معلّم', 'مادّة', 'دور', 'بارامتر', ...(GROUPS.length || st.tt === 'ظرف' ? ['ظرف'] : [])], st.tt, v => { if (st.tt !== v) { st.tt = v; st.target = ''; st.ctype = ''; } }));
+    parts.push(lbl('نوع الهدف'), chips(['معلّم', 'مادّة', 'دور', 'بارامتر', ...(circs().length || st.tt === 'ظرف' ? ['ظرف'] : [])], st.tt, v => { if (st.tt !== v) { st.tt = v; st.target = ''; st.ctype = ''; } }));
     parts.push(lbl('الهدف'));
     if (st.tt === 'ظرف') {
-      const s = select(GROUPS.map(g => g.name), st.target, 'اختر الظرف'); s.onchange = () => { st.target = s.value; preview(); };
-      if (st.target && !GROUPS.some(g => g.name === st.target)) s.append(el('option', { value: st.target, textContent: st.target }));
+      const s = select(circs().map(g => g.name), st.target, 'اختر الظرف'); s.onchange = () => { st.target = s.value; preview(); };
+      if (st.target && !circs().some(g => g.name === st.target)) s.append(el('option', { value: st.target, textContent: st.target }));
       s.value = st.target; parts.push(s);
     } else if (st.tt === 'معلّم') {
       const s = el('select', {}, el('option', { value: '', textContent: 'اختر المعلّم' }), ...depts().map(d => el('optgroup', { label: d },
@@ -589,7 +615,7 @@ function builder({ rule, request, link, onSaved, fixed, onCancel }) {
     } else if (st.tt === 'مادّة') {
       const s = select(SUBJECTS.map(x => x.s), st.target, 'اختر المادّة'); s.onchange = () => { st.target = s.value; preview(); };
       parts.push(s);
-    } else if (st.tt === 'دور') parts.push(chips(ROLES, st.target, v => { st.target = v; }));
+    } else if (st.tt === 'دور') parts.push(chips(roles().map(g => g.name), st.target, v => { st.target = v; }));
     else { const i = el('input', { value: st.target, placeholder: 'اسم البارامتر كما في ورقة «القيود»', maxLength: 200 }); i.oninput = () => { st.target = i.value.trim(); preview(); }; parts.push(i); }
     }
 
@@ -849,65 +875,84 @@ function showReport(total, changed, missing) {
   openScreen('تقرير الاستيراد', box);
 }
 
-// ---- Coverage and the week grid (spec 2026-10-12): layers (subject, role, circumstance) above each teacher ----
-// What the sheet «المعلمون» says of a teacher (imported by hand): subjects, and the roles its columns give.
-const ROLE_OF_CAT = { 'رئيس قسم بقيود صلبة': 'رؤساء الأقسام', 'معلم بقيود إدارية': 'إداريّون' };
-const rolesOf = t => [ROLE_OF_CAT[t.category], t.wing_sup ? 'مشرفو الأجنحة' : ''].filter(Boolean);
+// ---- Coverage and the week grid (spec 2026-10-13): roles, departments and their subjects, circumstances, then every teacher ----
+// Roles and circumstances are groups named here, their members chosen by hand; a wing is a role under «مشرفو الأجنحة».
 const subjectsOf = t => [t.subject, t.subject2].filter(Boolean);
 const nickT = t => t.nick || t.name;
 const sameName = (a, b) => fold(a).replace(/\s+/g, '') === fold(b).replace(/\s+/g, '');
+const kindOf = g => g.kind || 'ظرف';
+const roles = () => GROUPS.filter(g => kindOf(g) === 'دور');
+const circs = () => GROUPS.filter(g => kindOf(g) === 'ظرف');
 const membersOf = g => ((GROUPS.find(x => x.name === g) || {}).members || '').split('،').filter(Boolean);
-const groupsOf = t => GROUPS.filter(g => membersOf(g.name).some(m => sameName(m, nickT(t)))).map(g => g.name);
-const sourcesOf = t => [...subjectsOf(t).map(s => ['مادّة', s]), ...rolesOf(t).map(s => ['دور', s]), ...groupsOf(t).map(s => ['ظرف', s])];
+const isMember = (g, t) => membersOf(g).some(m => sameName(m, nickT(t)));
+// A teacher's roles: those that name it, and the role above each (a wing → «مشرفو الأجنحة»).
+const rolesOf = t => [...new Set(roles().filter(g => isMember(g.name, t)).flatMap(g => [g.name, g.parent].filter(Boolean)))];
+const circsOf = t => circs().filter(g => isMember(g.name, t)).map(g => g.name);
+const sourcesOf = t => [['قسم', t.department], ...subjectsOf(t).map(s => ['مادّة', s]), ...rolesOf(t).map(s => ['دور', s]), ...circsOf(t).map(s => ['ظرف', s])];
 const rowsOf = (tt, target) => (RULES || []).filter(r => r.target_type === tt && (tt === 'معلّم' ? sameName(r.target, target) : r.target === target));
 const inheritedOf = t => sourcesOf(t).flatMap(([tt, s]) => rowsOf(tt, s)).filter(r => r.active !== false);
-const teachersIn = (tt, target) => TEACHERS.filter(t => tt === 'مادّة' ? subjectsOf(t).includes(target) : tt === 'دور' ? rolesOf(t).includes(target) : groupsOf(t).includes(target));
-const synced = () => TEACHERS.some(t => t.subject);
+const teachersIn = (tt, target) => TEACHERS.filter(t => tt === 'قسم' ? t.department === target : tt === 'مادّة' ? subjectsOf(t).includes(target) : tt === 'دور' ? rolesOf(t).includes(target) : circsOf(t).includes(target));
+// A department's subjects (several: a tab each, after «كل القسم»).
+const deptSubjects = d => SUBJECTS.filter(x => x.d === d).map(x => x.s);
+const deptCount = d => rowsOf('قسم', d).length + deptSubjects(d).reduce((n, s) => n + rowsOf('مادّة', s).length, 0);
+const TT_TITLE = { 'دور': 'دور', 'ظرف': 'ظرف', 'قسم': 'قسم', 'مادّة': 'قسم', 'معلّم': 'بطاقة' };
+// Opens the page of a target: a subject opens its department on its tab.
+function openTarget(tt, target) {
+  if (tt === 'معلّم') return openScreen('بطاقة ' + target, gridPage('معلّم', target));
+  if (tt === 'قسم') return openScreen('قسم ' + target, deptPage(target));
+  if (tt === 'مادّة') { const d = (SUBJECTS.find(x => x.s === target) || {}).d || target; return openScreen('قسم ' + d, deptPage(d, target)); }
+  openScreen(TT_TITLE[tt] + ': ' + target, gridPage(tt, target));
+}
 
 $('rvCover').onclick = () => { RVIEW = 'cover'; renderRules(); };
 $('rvList').onclick = () => { RVIEW = 'list'; renderRules(); };
 
 function renderCover() {
-  const all = RULES || [];
-  const chip = (tt, target, label, n) => {
-    const b = el('button', { type: 'button', className: 'chip' + (n ? ' has' : '') }, label, n ? el('small', { textContent: ' (' + n + ')' }) : null);
-    b.onclick = () => openScreen(tt + ': ' + target, gridPage(tt, target));
+  const chip = (tt, target, label, n, cls) => {
+    const b = el('button', { type: 'button', className: 'chip' + (n ? ' has' : '') + (cls ? ' ' + cls : '') }, label, n ? el('small', { textContent: ' (' + n + ')' }) : null);
+    b.onclick = () => openTarget(tt, target);
     return b;
   };
-  const used = new Set(TEACHERS.flatMap(subjectsOf));
-  const subjects = SUBJECTS.map(x => x.s).filter(s => used.has(s) || rowsOf('مادّة', s).length || !synced());
-  const addGroup = el('button', { type: 'button', className: 'chip', textContent: '+ ظرف', style: 'border-style:dashed' });
-  addGroup.onclick = () => openScreen('ظرف جديد', groupForm(null));
+  const addBtn = (label, onClick) => { const b = el('button', { type: 'button', className: 'chip', textContent: label, style: 'border-style:dashed' }); b.onclick = onClick; return b; };
+  // Roles first: each main role, then its sub-roles (the wings) right after it.
+  const top = roles().filter(g => !g.parent || !roles().some(p => p.name === g.parent));
+  const roleChips = top.flatMap(g => [chip('دور', g.name, g.name, rowsOf('دور', g.name).length),
+    ...roles().filter(x => x.parent === g.name).map(x => chip('دور', x.name, '↲ ' + x.name, rowsOf('دور', x.name).length, 'subrole'))]);
+  const deptsHere = [...new Set(TEACHERS.map(t => t.department))].sort((a, b) => deptRank(a) - deptRank(b) || a.localeCompare(b, 'ar'));
   const layers = el('div', { className: 'card', style: 'padding:12px' },
-    el('div', { className: 'layer' }, el('b', { textContent: 'المواد' }), el('div', { className: 'chips' }, ...subjects.map(s => chip('مادّة', s, s, rowsOf('مادّة', s).length)))),
-    el('div', { className: 'layer' }, el('b', { textContent: 'الأدوار' }), el('div', { className: 'chips' }, ...ROLES.map(s => chip('دور', s, s, rowsOf('دور', s).length)))),
-    el('div', { className: 'layer', style: 'margin-bottom:0' }, el('b', { textContent: 'الظروف' }), el('div', { className: 'chips' }, ...GROUPS.map(g => chip('ظرف', g.name, g.name, rowsOf('ظرف', g.name).length)), addGroup)));
+    el('div', { className: 'layer' }, el('b', { textContent: 'الأدوار' }), el('div', { className: 'chips' }, ...roleChips,
+      addBtn('+ دور جديد', () => openScreen('دور جديد', groupForm(null, 'دور'))))),
+    el('div', { className: 'layer' }, el('b', { textContent: 'الأقسام' }), el('div', { className: 'chips' }, ...deptsHere.map(d => chip('قسم', d, d, deptCount(d))))),
+    el('div', { className: 'layer', style: 'margin-bottom:0' }, el('b', { textContent: 'الظروف' }), el('div', { className: 'chips' },
+      ...circs().map(g => chip('ظرف', g.name, g.name, rowsOf('ظرف', g.name).length)), addBtn('+ ظرف', () => openScreen('ظرف جديد', groupForm(null, 'ظرف'))))));
   // Every teacher: inherited · own; red = nothing, yellow = inherited only, green = has own rows.
   const byDept = new Map();
   for (const t of TEACHERS) { if (!byDept.has(t.department)) byDept.set(t.department, []); byDept.get(t.department).push(t); }
-  const depts = [...byDept.keys()].sort((a, b) => deptRank(a) - deptRank(b) || a.localeCompare(b, 'ar'));
   let none = 0;
-  const lines = depts.flatMap(d => [el('div', { className: 'grp', textContent: d }), ...byDept.get(d).sort((a, b) => nickT(a).localeCompare(nickT(b), 'ar')).map(t => {
-    const inh = inheritedOf(t).length, own = rowsOf('معلّم', nickT(t)).length;
-    if (!inh && !own) none++;
-    const line = el('div', { className: 'tline ' + (own ? 'cov2' : inh ? 'cov1' : 'cov0') },
-      el('span', { className: 'nm', textContent: nickT(t) }), el('span', { className: 'ct', textContent: 'موروث ' + inh + ' · خاص ' + own }));
-    line.onclick = () => openScreen('بطاقة ' + nickT(t), gridPage('معلّم', nickT(t)));
+  const lines = deptsHere.flatMap(d => [el('div', { className: 'grp', textContent: d }), ...byDept.get(d).sort((a, b) => nickT(a).localeCompare(nickT(b), 'ar')).map(t => {
+    const line = teacherLine(t);
+    if (line.classList.contains('cov0')) none++;
+    line.onclick = () => openTarget('معلّم', nickT(t));
     return line;
   })]);
-  const imp = el('button', { type: 'button', className: 'ghost', textContent: 'استيراد CSV المعلمين' });
+  const imp = el('button', { type: 'button', className: 'ghost', textContent: 'استيراد CSV المعلمين', style: 'padding:6px 12px;font-size:14px' });
   const file = el('input', { type: 'file', accept: '.csv,text/csv', className: 'hidden' });
   imp.onclick = () => file.click();
   file.onchange = () => { const f = file.files[0]; file.value = ''; if (f) importTeachers(f); };
-  $('coverView').replaceChildren(...[layers,
-    synced() ? null : el('div', { className: 'card hint', style: 'margin-top:0', textContent: 'لم تُستورد ورقة «المعلمون» بعد: لا تعرف المنصة مادة المعلم ولا دوره، فلا وراثة إلا من الظروف. صدّرها من الشيت CSV واضغط «استيراد CSV المعلمين».' }),
+  $('coverView').replaceChildren(layers,
     el('div', { className: 'card', style: 'padding:12px' },
       el('div', { className: 'row', style: 'margin:0;justify-content:space-between' }, el('span', { className: 'meta', textContent: 'المعلمون ' + TEACHERS.length + ' · بلا قيد ' + none }), imp, file),
-      el('div', { className: 'legend' }, el('span', { textContent: 'لا قيد', style: '--c:#fadcdc' }), el('span', { textContent: 'موروث فقط', style: '--c:#fff1cc' }), el('span', { textContent: 'له قيد خاص', style: '--c:#e2f4e8' })),
-      ...lines)].filter(Boolean));
+      covLegend(), ...lines));
+}
+const covLegend = () => el('div', { className: 'legend' }, el('span', { textContent: 'لا قيد', style: '--c:#fadcdc' }), el('span', { textContent: 'موروث فقط', style: '--c:#fff1cc' }), el('span', { textContent: 'له قيد خاص', style: '--c:#e2f4e8' }));
+// A teacher's line: its name and «موروث · خاص», coloured by coverage.
+function teacherLine(t) {
+  const inh = inheritedOf(t).length, own = rowsOf('معلّم', nickT(t)).length;
+  return el('div', { className: 'tline ' + (own ? 'cov2' : inh ? 'cov1' : 'cov0') },
+    el('span', { className: 'nm', textContent: nickT(t) }), el('span', { className: 'ct', textContent: 'موروث ' + inh + ' · خاص ' + own }));
 }
 
-// The sheet «المعلمون» → subjects, category and wing supervisor here (by User ID, then the nick).
+// The sheet «المعلمون» → subjects here (by User ID, then the nick); roles are chosen by hand (spec 2026-10-13).
 async function importTeachers(f) {
   try {
     const rows = parseCsv(await f.text());
@@ -930,10 +975,13 @@ async function importTeachers(f) {
   } catch (e) { toast(e, true); }
 }
 
-// A circumstance: its name, members (teachers) and a note.
-function groupForm(g) {
+// A role or a circumstance: its name, members (teachers) and a note; a role may sit under another (a wing under «مشرفو الأجنحة»).
+function groupForm(g, kind) {
+  kind = g ? kindOf(g) : kind;
+  const word = kind === 'دور' ? 'الدور' : 'الظرف';
   let members = g ? membersOf(g.name) : [];
-  const name = el('input', { value: g ? g.name : '', placeholder: 'اسم الظرف (مثل: ظرف صحي)', maxLength: 120 });
+  const name = el('input', { value: g ? g.name : '', placeholder: kind === 'دور' ? 'اسم الدور (مثل: منسقو المواد)' : 'اسم الظرف (مثل: ظرف صحي)', maxLength: 120 });
+  const parent = kind === 'دور' ? select(roles().filter(x => !x.parent && (!g || x.name !== g.name)).map(x => x.name), g ? g.parent : '', '— دور رئيسي —') : null;
   const note = el('textarea', { value: g ? g.note : '', placeholder: 'ملاحظة (اختيارية)', maxLength: 2000 });
   const box = el('div');
   const pick = el('select');
@@ -949,186 +997,256 @@ function groupForm(g) {
   const fmsg = el('span', { className: 'meta' });
   cancel.onclick = closeScreen;
   save.onclick = async () => {
-    const f = { old: g ? g.name : '', name: name.value.trim(), members, note: note.value.trim() };
-    if (!f.name) return (fmsg.textContent = 'اكتب اسم الظرف');
+    const f = { old: g ? g.name : '', name: name.value.trim(), kind, parent: parent ? parent.value : '', members, note: note.value.trim() };
+    if (!f.name) return (fmsg.textContent = 'اكتب اسم ' + word);
     save.disabled = true;
     try {
       await call('group_save', f);
-      if (g) { (RULES || []).forEach(r => { if (r.target_type === 'ظرف' && r.target === g.name) r.target = f.name; }); Object.assign(g, { name: f.name, members: members.join('،'), note: f.note }); }
-      else GROUPS.push({ name: f.name, members: members.join('،'), note: f.note });
+      const row = { name: f.name, kind, parent: f.parent, members: members.join('،'), note: f.note };
+      if (g) {
+        (RULES || []).forEach(r => { if (r.target_type === kind && r.target === g.name) r.target = f.name; });
+        GROUPS.forEach(x => { if (x.parent === g.name) x.parent = f.name; });
+        Object.assign(g, row);
+      } else GROUPS.push(row);
       toast('حُفظ ✓'); closeScreen();
     } catch (e) { fmsg.textContent = e; save.disabled = false; }
   };
-  const del = g ? delButton('حذف الظرف', async () => { await call('group_delete', { name: g.name }); GROUPS = GROUPS.filter(x => x !== g); toast('حُذف ✓'); closeScreen(); }) : null;
-  return el('div', { className: 'cform' }, name, el('div', { className: 'lbl', textContent: 'الأعضاء', style: 'font-weight:700;color:var(--navy);font-size:14px;margin:10px 0 5px' }),
+  const del = g ? delButton('حذف ' + word, async () => { await call('group_delete', { name: g.name }); GROUPS = GROUPS.filter(x => x !== g); toast('حُذف ✓'); closeScreen(); }) : null;
+  const lbl = t => el('div', { className: 'lbl', textContent: t, style: 'font-weight:700;color:var(--navy);font-size:14px;margin:10px 0 5px' });
+  return el('div', { className: 'cform' }, name, parent ? lbl('تحت') : null, parent, lbl('الأعضاء'),
     el('div', { className: 'chips' }, box), el('div', { style: 'margin-top:6px' }, pick), note, el('div', { className: 'row' }, save, cancel, del, fmsg));
 }
 
-// The page of one target: its week grid (sheet types «لا حصّة» and «خانات محجوبة»), then its other types.
-function gridPage(tt, target) {
-  const page = el('div', { className: 'builder' });
+// A department: «كل القسم» first, then a tab for each of its subjects (a department of one subject has no tabs).
+function deptPage(d, tab) {
+  const subs = deptSubjects(d);
+  const page = el('div');
+  const draw = cur => {
+    const tabs = subs.length > 1 ? el('div', { className: 'chips dtabs' }, ...[['قسم', d, 'كل القسم'], ...subs.map(s => ['مادّة', s, s])].map(([tt, target, label]) => {
+      const n = rowsOf(tt, target).length;
+      const b = el('button', { type: 'button', className: 'chip' + (target === cur ? ' on' : '') }, label, n ? el('small', { textContent: ' (' + n + ')' }) : null);
+      b.onclick = () => draw(target);
+      return b;
+    })) : null;
+    const tt = cur === d ? 'قسم' : 'مادّة';
+    page.replaceChildren(...[tabs, gridPage(tt, cur, { onSaved: () => draw(cur) })].filter(Boolean));
+  };
+  draw(tab && subs.includes(tab) && subs.length > 1 ? tab : d);
+  return page;
+}
+
+// The cell menu: «فارغ» · صلب · مرن 10 … 300 · مرن (a weight written by hand), and the switch ثابت / مؤقت (ثابت by default).
+// On a teacher's inherited cell: «كما الموروث» drops the teacher's own cell, «فارغ» exempts the teacher from it.
+const WEIGHTS = [10, 30, 50, 100, 300];
+function cellMenu({ title, cur, inh, onPick }) {
+  let dur = cur ? cur.dur || 'ثابتة' : 'ثابتة';
+  const veil = el('div', { className: 'veil' });
+  const sheet = el('div', { className: 'sheetMenu', role: 'dialog' });
+  const close = () => { veil.remove(); sheet.remove(); };
+  veil.onclick = close;
+  const pickIt = v => { close(); onPick(v); };
+  const isCur = v => v === null ? !cur : !!cur && Grid.same(cur, { ...v, dur: cur.dur });
+  const opt = (label, v, cls) => {
+    const b = el('button', { type: 'button', className: 'opt' + (cls ? ' ' + cls : '') + (isCur(v) ? ' on' : ''), textContent: label });
+    b.onclick = () => pickIt(v && { ...v, dur });
+    return b;
+  };
+  const durSw = el('div', { className: 'durSw' });
+  const drawSw = () => durSw.replaceChildren(...DURS.map(d => {
+    const b = el('button', { type: 'button', className: d === dur ? 'on' : '', textContent: d === 'مؤقتة' ? '⏳ مؤقت' : 'ثابت' });
+    b.onclick = () => { dur = d; drawSw(); };
+    return b;
+  }));
+  drawSw();
+  const w = el('input', { type: 'number', inputMode: 'numeric', min: 0, placeholder: 'الوزن', value: cur && cur.lv === 'مرن موزون' && !WEIGHTS.includes(cur.w) ? cur.w : '' });
+  const wOk = el('button', { type: 'button', className: 'opt soft', textContent: 'مرن ✓' });
+  wOk.onclick = () => { const n = Number(digits(w.value)); if (w.value === '' || !(n >= 0)) return w.focus(); pickIt({ lv: 'مرن موزون', w: Math.floor(n), dur }); };
+  const inhText = inh ? (inh.lv === 'صلب' ? 'صلب' : 'مرن ' + (inh.w ?? '؟')) : '';
+  sheet.append(el('div', { className: 'mt', textContent: title }),
+    el('div', { className: 'opts' }, ...[
+      inh ? opt('كما الموروث (' + inhText + ')', null, 'same') : null,
+      inh ? opt('فارغ (إعفاء)', { lv: 'إعفاء', w: null }, 'free') : opt('فارغ', null, 'free'),
+      opt('صلب', { lv: 'صلب', w: null }, 'hard'),
+      ...WEIGHTS.map(n => opt('مرن ' + n, { lv: 'مرن موزون', w: n }, 'soft'))].filter(Boolean)),
+    el('div', { className: 'wrow' }, w, wOk), durSw);
+  document.body.append(veil, sheet);
+}
+
+// The page of one target: its week grid, then (a role, department, subject or circumstance) its teachers, each with a grid of its own.
+function gridPage(tt, target, opts = {}) {
+  const page = el('div', { className: 'builder' + (opts.embedded ? ' embedded' : '') });
   const rows = rowsOf(tt, target);
   const managed = rows.filter(Grid.managed);
   const cells = new Map(Grid.fromRows(managed));
   const t = tt === 'معلّم' ? teacherOf(target) || TEACHERS.find(x => sameName(nickT(x), target)) : null;
-  // Inherited cells (a teacher's card): the strongest of its layers, with where it comes from.
+  // Inherited cells (a teacher): the strongest of its layers, with where it comes from.
   const inh = new Map();
   const inhRows = t ? inheritedOf(t) : [];
   for (const r of inhRows.filter(Grid.managed)) for (const k of Grid.cellsOf(r)) {
-    const o = inh.get(k), c = { lv: r.level, w: r.level === 'مرن موزون' ? r.weight : null, src: r.target_type + ': ' + r.target };
+    const o = inh.get(k), c = { lv: r.level, w: r.level === 'مرن موزون' ? r.weight : null, dur: Grid.cellOf(r).dur, src: targetLabel(r) };
+    if (c.lv === 'إعفاء') continue;
     if (!o || Grid.rank(c) > Grid.rank(o)) inh.set(k, c);
   }
-  const onlyCols = tt === 'دور'; // the sheet takes only «لا حصّة» for a role: whole periods
-  let weight = 50, duration = durOf(tt), warn7 = false;
-  const note = el('textarea', { placeholder: 'ملاحظة (سبب القيد) — تُنسخ إلى كل صف جديد، وتُعدَّل لكل صف من «⋯»', maxLength: 3000 });
+  const note = el('textarea', { placeholder: 'ملاحظة (سبب القيد) — تُنسخ إلى كل قيد جديد، وتُعدَّل لكل قيد من «⋯» في القائمة', maxLength: 3000, rows: 2 });
   const grid = el('div'), pv = el('div', { className: 'pv plan' }), fmsg = el('span', { className: 'meta' });
-  const HARD = { lv: 'صلب', w: null };
-  const soft = w => ({ lv: 'مرن موزون', w });
-  // A tap: hard → soft → clear; the seventh the other way round (soft 100 first; hard is for an administrative decision).
-  const next = (c, p) => {
-    const first = p === 7 ? soft(100) : HARD, second = p === 7 ? HARD : soft(weight);
-    return !c ? first : c.lv === first.lv ? second : null;
+  // A pick equal to the inherited binding is no exception: the teacher's own cell goes.
+  const set = (k, v) => {
+    const i = inh.get(k);
+    if (v && i && v.lv !== 'إعفاء' && Grid.same(v, { lv: i.lv, w: i.w, dur: v.dur }) && v.dur === 'ثابتة') v = null;
+    if (v) cells.set(k, v); else cells.delete(k);
   };
-  const set = (k, v, p) => { if (v) cells.set(k, v); else cells.delete(k); if (v && v.lv === 'صلب' && p === 7) warn7 = true; };
-  const locked = k => inh.has(k) && !cells.has(k);
+  const menu = (title, ks) => {
+    const k0 = ks[0];
+    const allInh = ks.every(k => inh.has(k));
+    cellMenu({ title: title + (allInh ? ' — موروث من ' + inh.get(k0).src : ''), cur: cells.get(k0), inh: allInh ? inh.get(k0) : null, onPick: v => { ks.forEach(k => set(k, v)); draw(); } });
+  };
   function drawGrid() {
     const head = el('tr', {}, el('th', { className: 'd' }), ...Grid.PERIODS.map(p => {
       const b = el('button', { type: 'button', textContent: p, title: 'الحصة ' + p + ' في كل الأيام' });
-      b.onclick = () => {
-        const v = next(cells.get(Grid.key(0, p)), p);
-        Grid.DAYS.forEach((_, d) => { const k = Grid.key(d, p); if (!locked(k)) set(k, v, p); });
-        draw();
-      };
+      b.onclick = () => menu('الحصة ' + p + ' — كل الأيام', Grid.DAYS.map((_, d) => Grid.key(d, p)));
       return el('th', {}, b);
     }));
-    const body = Grid.DAYS.map((day, d) => el('tr', {}, el('th', { className: 'd', textContent: day }), ...Grid.PERIODS.map(p => {
-      const k = Grid.key(d, p), c = cells.get(k), i = inh.get(k);
-      const b = el('button', { type: 'button' });
-      if (c) { b.className = c.lv === 'صلب' ? 'hard' : 'soft'; b.textContent = c.lv === 'صلب' ? '✕' : c.w ?? '؟'; }
-      else if (i) { b.className = 'inh ' + (i.lv === 'صلب' ? 'ih' : 'is'); b.textContent = '🔒'; b.title = 'من ' + i.src; }
-      b.disabled = onlyCols || locked(k);
-      b.onclick = () => { set(k, next(c, p), p); draw(); };
-      return el('td', {}, b);
-    })));
+    const body = Grid.DAYS.map((day, d) => {
+      const db = el('button', { type: 'button', className: 'dayb', textContent: day, title: day + ' كله' });
+      db.onclick = () => menu(day + ' — كل الحصص', Grid.PERIODS.map(p => Grid.key(d, p)));
+      return el('tr', {}, el('th', { className: 'd' }, db), ...Grid.PERIODS.map(p => {
+        const k = Grid.key(d, p), c = cells.get(k), i = inh.get(k);
+        const b = el('button', { type: 'button' });
+        const show = c || i;
+        if (show) {
+          b.className = c ? (c.lv === 'صلب' ? 'hard' : c.lv === 'إعفاء' ? 'free' : 'soft') : 'inh ' + (i.lv === 'صلب' ? 'ih' : 'is');
+          b.textContent = show.lv === 'صلب' ? '✕' : show.lv === 'إعفاء' ? '—' : show.w ?? '؟';
+          if (c && i) b.classList.add('exc');
+          if (show.dur === 'مؤقتة') b.classList.add('tmp');
+          b.title = [c && i ? 'استثناء من ' + i.src : i ? 'من ' + i.src : '', show.dur === 'مؤقتة' ? 'مؤقت' : ''].filter(Boolean).join(' · ');
+        }
+        b.onclick = () => menu(day + ' — الحصة ' + p, [k]);
+        return el('td', {}, b);
+      }));
+    });
     grid.replaceChildren(el('table', { className: 'wk' }, head, ...body));
   }
-  const fmt = r => r.ctype + ' — ' + r.value + ' 〔' + (r.level === 'مرن موزون' ? 'مرن موزون ' + (r.weight ?? '؟') : r.level) + '〕';
+  const fmt = r => phrase({ ...r, target_type: tt, target }).split(' — ').slice(1).join(' — ');
   function drawPlan() {
-    const p = Grid.plan(managed, cells, tt);
-    const lines = [...p.del.map(r => el('div', { className: 'del', textContent: '− احذف: ' + fmt(r) })),
-      ...p.add.map(r => el('div', { className: 'add', textContent: '+ أضف: ' + fmt(r) }))];
-    pv.replaceChildren(...[el('b', { textContent: 'ورقة «القيود»' + (lines.length ? ' بعد الحفظ:' : ': لا تغيير') }), ...lines,
-      p.keep.length ? el('div', { className: 'keep', textContent: 'تبقى كما هي: ' + p.keep.length + (p.keep.length === 1 ? ' صف' : ' صفوف') }) : null,
-      warn7 ? el('div', { style: 'color:var(--err);font-weight:700', textContent: '⚠️ الصلب في السابعة للقرار الإداري فقط: كل منع صلب منها ينقلها «سابعة ثانية» إلى زميل.' }) : null].filter(Boolean));
+    const p = Grid.plan(managed, cells);
+    const lines = [...p.del.map(r => el('div', { className: 'del', textContent: '− ' + fmt(r) })), ...p.add.map(r => el('div', { className: 'add', textContent: '+ ' + fmt(r) }))];
+    pv.replaceChildren(...[el('b', { textContent: lines.length ? 'بعد الحفظ:' : 'لا تغيير' }), ...lines]);
+    pv.classList.toggle('hidden', !lines.length);
+    save.disabled = !lines.length;
     return p;
   }
-  const chipsRow = (vals, cur, onPick) => el('div', { className: 'chips' }, ...vals.map(([v, label]) => {
-    const b = el('button', { type: 'button', className: 'chip' + (String(cur) === String(v) ? ' on' : ''), textContent: label });
-    b.onclick = () => { onPick(v); draw(); };
-    return b;
-  }));
-  const opts = el('div');
-  function drawOpts() {
-    const w = el('input', { className: 'w', type: 'number', inputMode: 'numeric', min: 0, value: weight, style: 'width:90px;padding:6px 8px;text-align:center' });
-    w.oninput = () => { weight = w.value === '' ? null : Number(w.value); };
-    opts.replaceChildren(
-      el('div', { className: 'lbl', textContent: 'وزن الخانات المرنة الجديدة' }),
-      el('div', { className: 'row', style: 'margin-top:0' }, chipsRow([[10, '10 خفيف'], [30, '30'], [50, '50 عادي'], [100, '100 قوي'], [300, '300 قوي جداً']], weight, v => { weight = v; }), w),
-      el('div', { className: 'lbl', textContent: 'المدة (للصفوف الجديدة)' }), chipsRow(DURS.map(d => [d, d]), duration, v => { duration = v; }));
-  }
-  function draw() { drawGrid(); drawPlan(); drawOpts(); }
+  function draw() { drawGrid(); drawPlan(); }
   const save = el('button', { type: 'button', textContent: 'حفظ' });
-  const cancel = el('button', { type: 'button', className: 'ghost', textContent: 'رجوع' });
-  cancel.onclick = closeScreen;
   save.onclick = async () => {
     const p = drawPlan();
     if (!p.add.length && !p.del.length) return (fmsg.textContent = 'لا تغيير');
-    if (p.add.some(r => r.level === 'مرن موزون' && (r.weight === null || !(r.weight >= 0)))) return (fmsg.textContent = 'اكتب الوزن');
-    if (p.add.length && !note.value.trim()) return (fmsg.textContent = 'الملاحظة (السبب) إلزامية');
+    if (p.add.length && !note.value.trim()) { fmsg.textContent = 'الملاحظة (السبب) إلزامية'; return note.focus(); }
     const add = p.add.map(r => {
       const f = { target_type: tt, target, ctype: r.ctype, pattern: '', value: r.value, level: r.level, weight: r.weight, active: true,
-        duration, reason: note.value.trim(), department: deptOf(tt, target), sheet_state: 'غير مسجّل', link_id: null };
+        duration: r.duration, reason: note.value.trim(), department: deptOf(tt, target), sheet_state: 'غير مسجّل', link_id: null };
       return { ...f, text: lineOf(f) };
     });
     save.disabled = true; fmsg.textContent = 'جارٍ الحفظ...';
     try {
       const o = await call('grid_save', { target_type: tt, target, del: p.del.map(r => r.id), add });
       const gone = new Set(p.del.map(r => r.id));
-      RULES = RULES.filter(r => !gone.has(r.id)).concat(add.map((f, i) => ({ id: o.ids[i], created_at: new Date().toISOString(), request_id: null, checked: false, ...f })));
+      RULES = RULES.filter(r => !gone.has(r.id)).concat(add.map((f, i) => ({ id: o.ids[i], created_at: new Date().toISOString(), request_id: null, checked: false, approved: false, sheet_text: '', ...f })));
       toast('حُفظ ✓');
-      openScreen($('scrTitle').textContent, gridPage(tt, target));
+      if (opts.onSaved) opts.onSaved(); else page.replaceWith(gridPage(tt, target, opts));
     } catch (e) { fmsg.textContent = e; save.disabled = false; }
   };
 
-  // Above the grid: who this is, and what it inherits.
+  // Above the grid: who this is, what it inherits, or whom it covers.
   const head = [];
-  if (t) {
-    const src = sourcesOf(t);
+  if (t && !opts.embedded) {
     head.push(el('div', { className: 'meta', textContent: [t.department, ...subjectsOf(t)].filter((x, i, a) => a.indexOf(x) === i).join(' · ') }),
-      el('div', { className: 'hint', style: 'margin-top:4px' }, el('b', { textContent: 'يرث من: ' }), src.length ? src.map(([a, b]) => a + ' ' + b).join(' · ') : (synced() ? 'لا شيء' : 'لا شيء (لم تُستورد ورقة «المعلمون»)')));
-  } else if (tt !== 'معلّم') {
+      el('div', { className: 'hint', style: 'margin-top:4px' }, el('b', { textContent: 'يرث من: ' }), sourcesOf(t).map(([a, b]) => a === 'دور' ? b : a + ' ' + b).join(' · ')),
+      classify(t));
+  } else if (!t) {
+    const g = GROUPS.find(x => x.name === target && kindOf(x) === tt);
     const ms = teachersIn(tt, target).map(nickT);
-    head.push(el('div', { className: 'hint', style: 'margin-top:0' }, el('b', { textContent: 'يسري على ' + ms.length + ': ' }), ms.join('، ') || (tt === 'ظرف' ? 'لا أعضاء بعد' : synced() ? 'لا أحد' : 'غير معروف (لم تُستورد ورقة «المعلمون»)')));
-    if (tt === 'ظرف') {
-      const g = GROUPS.find(x => x.name === target);
-      const edit = el('button', { type: 'button', className: 'ghost', textContent: '✏️ الاسم والأعضاء' });
-      edit.onclick = () => openScreen('تعديل الظرف', groupForm(g));
-      head.push(el('div', { className: 'row', style: 'margin-top:6px' }, edit), g && g.note ? el('div', { className: 'meta', textContent: g.note }) : null);
+    head.push(el('div', { className: 'hint', style: 'margin-top:0' }, el('b', { textContent: 'يسري على ' + ms.length + ': ' }), ms.join('، ') || 'لا أعضاء بعد'));
+    if (g) {
+      const edit = el('button', { type: 'button', className: 'ghost', textContent: '✏️ الاسم والأعضاء', style: 'padding:6px 12px;font-size:14px' });
+      edit.onclick = () => openScreen('تعديل ' + (tt === 'دور' ? 'الدور' : 'الظرف'), groupForm(g));
+      head.push(el('div', { className: 'row', style: 'margin-top:6px' }, edit), g.note ? el('div', { className: 'meta', textContent: g.note }) : null);
     }
   }
   const legend = el('div', { className: 'legend' }, el('span', { textContent: 'صلب ✕', style: '--c:#f4c7c3' }), el('span', { textContent: 'مرن (الرقم = الوزن)', style: '--c:#cdebd8' }),
-    t ? el('span', { textContent: '🔒 موروث', style: '--c:#e9edf1' }) : null);
-  const hint = el('div', { className: 'hint', textContent: onlyCols
-    ? 'الدور لا يقبل في الشيت إلا «لا حصّة»: اضغط رقم الحصة لتحجبها كل الأيام (لمسة = صلب، الثانية = مرن، الثالثة ترفع الحجب).'
-    : 'لمسة = صلب، الثانية = مرن، الثالثة ترفع الحجب؛ والسابعة: مرن 100 أولاً. رقم الحصة يحجب العمود كله.' });
-  // Rows of the two grid types the grid does not take (switched off, or a value it cannot read): kept as they are.
-  const other = rows.filter(r => Grid.MANAGED.includes(r.ctype) && !Grid.managed(r));
-  // Inherited rows of the other types, read-only, with their source.
-  const inhOther = inhRows.filter(r => !Grid.MANAGED.includes(r.ctype));
-  page.append(...[...head, legend, hint, grid,
-    other.length ? el('div', { className: 'tsec' }, el('b', { textContent: 'صفوف لا تقرؤها الشبكة (تبقى كما هي)' }), ...other.map(miniRule)) : null,
-    inh.size ? el('div', { className: 'meta', style: 'margin-top:6px' }, '🔒 ', [...new Set([...inh.values()].map(c => c.src))].join(' · ')) : null,
-    opts, el('div', { className: 'lbl', textContent: 'ملاحظة', style: 'font-weight:700;color:var(--navy);font-size:14px;margin:10px 0 5px' }), note, pv,
-    el('div', { className: 'row' }, save, cancel, fmsg),
-    inhOther.length ? el('div', { className: 'tsec' }, el('b', { textContent: '🔒 موروث من أنواع أخرى' }), ...inhOther.map(r => miniRule(r, true))) : null,
-    ...typeSections(tt, target, rows)].filter(Boolean));
+    el('span', { textContent: '⏳ مؤقت', style: '--c:#fff' }), t ? el('span', { textContent: 'موروث', style: '--c:#e9edf1' }) : null, t ? el('span', { textContent: '✎ استثناء', style: '--c:#fff' }) : null);
+  // Other constraints of the target (from a request, before the grid): shown as they are.
+  const other = rows.filter(r => !Grid.managed(r));
+  page.append(...[...head, opts.embedded ? null : legend, grid,
+    other.length ? el('div', { className: 'tsec' }, el('b', { textContent: 'قيود أخرى' }), ...other.map(r => miniRule(r))) : null,
+    note, pv, el('div', { className: 'row' }, save, fmsg),
+    t || opts.embedded ? null : memberList(teachersIn(tt, target))].filter(Boolean));
   draw();
   return page;
 }
-// A constraint line on a card: its type, value and binding; «⋯» opens its details (not ticked off here).
-function miniRule(r, withTarget) {
-  const more = el('button', { type: 'button', className: 'more', textContent: '⋯', title: 'التفاصيل' });
-  more.onclick = () => openScreen('تفاصيل القيد', ruleDetail(r));
-  const lvl = levelText(r);
-  const box = el('div', { className: 'rule ' + ruleColor(r), style: 'cursor:default' });
-  const redraw = () => box.querySelector('.appr').replaceWith(approveBtn(r, redraw));
-  box.append(el('div', { className: 'top' },
-    el('span', { className: 'ct', textContent: (isProposed(r.ctype) ? '🆕 ' : '') + r.ctype }),
-    el('span', { className: 'tx' }, withTarget ? el('b', { textContent: targetText(r) + ' ' }) : null, r.pattern ? r.pattern + ' · ' : '', r.value || ''),
-    lvl ? el('span', { className: 'lv ' + strength(r), textContent: lvl }) : null, r.active === false ? el('span', { className: 'meta', textContent: 'غير مفعَّل' }) : null,
-    el('span', { className: 'st', textContent: STATE_ICON[r.sheet_state] || '', title: r.sheet_state }), approveBtn(r, redraw), more));
+// Under a role, department or subject: its teachers; a tap opens the teacher's grid in place (one at a time).
+function memberList(list) {
+  if (!list.length) return null;
+  const box = el('div', { className: 'members' }, el('div', { className: 'lbl', textContent: 'المعلمون (' + list.length + ')', style: 'font-weight:700;color:var(--navy);font-size:15px;margin:16px 0 6px' }));
+  let open = null;
+  for (const t of list.sort((a, b) => nickT(a).localeCompare(nickT(b), 'ar'))) {
+    const line = teacherLine(t);
+    const slot = el('div');
+    line.onclick = () => {
+      if (open) { open.slot.replaceChildren(); open.line.classList.remove('open'); }
+      if (open && open.line === line) { open = null; return; }
+      open = { line, slot };
+      line.classList.add('open');
+      const draw = () => slot.replaceChildren(gridPage('معلّم', nickT(t), { embedded: true, onSaved: () => { const fresh = teacherLine(t); line.className = fresh.className + ' open'; line.replaceChildren(...fresh.childNodes); draw(); } }));
+      draw();
+    };
+    box.append(line, slot);
+  }
   return box;
 }
-// The other sheet types of the target, one line each: its rows, and «+» to add one in place.
-function typeSections(tt, target, rows) {
-  const tf = ttFor(tt);
-  const types = [...SHEET_TYPES.filter(x => x.for.includes(tf) && !Grid.MANAGED.includes(x.n)).map(x => ({ n: x.n, h: x.h })),
-    ...TYPES.filter(x => x.targets.split('،').includes(tf)).map(x => ({ n: x.name, h: x.explain || 'نوع مقترح', proposed: true }))];
-  if (!types.length) return [];
-  return [el('div', { className: 'lbl', textContent: 'أنواع أخرى', style: 'font-weight:700;color:var(--navy);font-size:15px;margin:16px 0 4px' }), ...types.map(x => {
-    const mine = rows.filter(r => r.ctype === x.n);
-    const sec = el('div', { className: 'tsec' });
-    const add = el('button', { type: 'button', className: mine.length ? 'ghost' : '', textContent: mine.length ? '+ آخر' : 'تشغيل', style: 'padding:4px 12px;font-size:14px' });
-    const slot = el('div');
-    add.onclick = () => {
-      add.disabled = true;
-      slot.replaceChildren(builder({ fixed: { tt, target, ctype: x.n }, onCancel: () => { slot.replaceChildren(); add.disabled = false; },
-        onSaved: () => openScreen($('scrTitle').textContent, gridPage(tt, target)) }));
+// A teacher's roles and circumstances, chosen by hand here (saved with the button).
+function classify(t) {
+  const nick = nickT(t);
+  const all = [...roles(), ...circs()];
+  const on = new Set(all.filter(g => membersOf(g.name).some(m => sameName(m, nick))).map(g => g.name));
+  const start = new Set(on);
+  const box = el('div', { className: 'tsec', style: 'margin-top:8px' });
+  const save = el('button', { type: 'button', textContent: 'حفظ التصنيف', style: 'padding:5px 14px;font-size:14px' });
+  const draw = () => {
+    const chip = g => {
+      const b = el('button', { type: 'button', className: 'chip' + (on.has(g.name) ? ' on' : ''), textContent: (g.parent ? '↲ ' : '') + g.name });
+      b.onclick = () => { on.has(g.name) ? on.delete(g.name) : on.add(g.name); draw(); };
+      return b;
     };
-    sec.append(el('div', { className: 'hd' }, el('b', { textContent: (x.proposed ? '🆕 ' : '') + x.n }), add),
-      el('div', { className: 'meta', textContent: x.h }), ...mine.map(r => miniRule(r)), slot);
-    return sec;
-  })];
+    const changed = all.filter(g => on.has(g.name) !== start.has(g.name));
+    save.classList.toggle('hidden', !changed.length);
+    box.replaceChildren(el('div', { className: 'hd' }, el('b', { textContent: 'الأدوار والظروف' }), save),
+      ...[el('div', { className: 'chips' }, ...roles().map(chip)), circs().length ? el('div', { className: 'chips', style: 'margin-top:6px' }, ...circs().map(chip)) : null].filter(Boolean));
+  };
+  save.onclick = async () => {
+    save.disabled = true;
+    try {
+      for (const g of all.filter(x => on.has(x.name) !== start.has(x.name))) {
+        const members = on.has(g.name) ? [...membersOf(g.name), nick] : membersOf(g.name).filter(m => !sameName(m, nick));
+        await call('group_save', { old: g.name, name: g.name, kind: kindOf(g), parent: g.parent || '', members, note: g.note || '' });
+        g.members = members.join('،');
+        on.has(g.name) ? start.add(g.name) : start.delete(g.name);
+      }
+      toast('حُفظ ✓');
+      openScreen($('scrTitle').textContent, gridPage('معلّم', nick));
+    } catch (e) { toast(e, true); save.disabled = false; }
+  };
+  draw();
+  return box;
+}
+// A constraint line on a page: its words and binding; «⋯» opens its details (not ticked off here).
+function miniRule(r) {
+  const more = el('button', { type: 'button', className: 'more', textContent: '⋯', title: 'التفاصيل' });
+  more.onclick = () => openScreen('تفاصيل القيد', ruleDetail(r));
+  const box = el('div', { className: 'rule ' + ruleColor(r), style: 'cursor:default' });
+  const redraw = () => box.querySelector('.appr').replaceWith(approveBtn(r, redraw));
+  box.append(el('div', { className: 'top' }, el('span', { className: 'tx' }, phrase(r)),
+    stateIcon(r), approveBtn(r, redraw), more));
+  return box;
 }
 
 // ---- «المنصة القديمة»: the constraints as one long list of free text, and every request, until the two are merged ----

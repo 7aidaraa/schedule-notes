@@ -48,9 +48,12 @@ async function deleteRequest(id: string) {
 }
 
 // A constraint in the sheet's terms (sheet «القيود», section three, columns A–I) plus the platform's own fields.
-// «ظرف»: a group of teachers the platform names; exported as one «معلّم» row per member (the sheet has no such target).
-const TARGET_TYPES = ["معلّم", "مادّة", "دور", "بارامتر", "ظرف"];
-const DURATIONS = ["دائمة", "شبه دائمة", "مؤقتة"];
+// «دور» and «ظرف»: groups of teachers named in the platform (constraint_groups.kind); «قسم»: every teacher of a department.
+const TARGET_TYPES = ["معلّم", "مادّة", "دور", "بارامتر", "ظرف", "قسم"];
+const DURATIONS = ["ثابتة", "مؤقتة"];
+const GROUP_KINDS = ["دور", "ظرف"];
+// Constraints of the new platform that «المنصة القديمة» shows as converted on 2026-10-12: kept for it, not shown here.
+const OLD_TODAY = [1105, 1106, 1107, 1108, 1109];
 const STATES = ["مسجّل", "خامل", "غير مسجّل", "نوع مقترح"];
 function cleanRule(b: Record<string, any>) {
   const w = Math.floor(Number(b.weight));
@@ -59,14 +62,14 @@ function cleanRule(b: Record<string, any>) {
     target: str(b.target, 200), ctype: str(b.ctype, 120), pattern: str(b.pattern, 40), value: str(b.value, 500),
     level: str(b.level, 40), weight: b.weight === null || b.weight === "" || !Number.isFinite(w) || w < 0 ? null : w,
     active: b.active !== false, reason: str(b.reason, 3000), department: str(b.department, 80), text: str(b.text, 3000),
-    duration: DURATIONS.includes(b.duration) ? b.duration : "شبه دائمة",
+    duration: DURATIONS.includes(b.duration) ? b.duration : "ثابتة",
     sheet_state: STATES.includes(b.sheet_state) ? b.sheet_state : "غير مسجّل",
     link_id: Number.isFinite(Number(b.link_id)) && b.link_id ? Number(b.link_id) : null,
   };
 }
 const ruleError = (r: ReturnType<typeof cleanRule>) =>
   !r.target ? "الهدف مطلوب" : !r.ctype ? "نوع القيد مطلوب" : !r.reason ? "الملاحظة (السبب) مطلوبة" : !r.text ? "نص القيد مطلوب" : "";
-const RULE_COLS = "id,created_at,department,text,level,reason,request_id,target_type,target,ctype,pattern,value,weight,active,duration,sheet_state,link_id,checked,approved";
+const RULE_COLS = "id,created_at,department,text,level,reason,request_id,target_type,target,ctype,pattern,value,weight,active,duration,sheet_state,link_id,checked,approved,sheet_text";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -141,9 +144,9 @@ Deno.serve(async (req) => {
   // ---- Constraints ----
   if (action === "rules") {
     // Rows from before the sheet-terms template (no target type) stay in the table, unshown.
-    const { data, error } = await db.from("constraints").select(RULE_COLS).neq("target_type", "").order("id");
+    const { data, error } = await db.from("constraints").select(RULE_COLS).neq("target_type", "").not("id", "in", "(" + OLD_TODAY.join(",") + ")").order("id");
     const { data: types, error: e2 } = await db.from("constraint_types").select("name,targets,explain").order("created_at");
-    const { data: groups, error: e3 } = await db.from("constraint_groups").select("name,members,note").order("created_at");
+    const { data: groups, error: e3 } = await db.from("constraint_groups").select("name,members,note,kind,parent").order("created_at");
     return error || e2 || e3 ? fail("تعذر جلب القيود", 500) : json({ rows: data, types, groups });
   }
   if (action === "rule_save") {
@@ -182,26 +185,31 @@ Deno.serve(async (req) => {
     return error ? fail("حُذف ما رُفع حجبه، وتعذر حفظ الجديد", 500) : json({ ok: true, ids: (data ?? []).map((r) => r.id) });
   }
   if (action === "group_save") {
-    // A circumstance: a named group of teachers (nicks); `old` renames it, and its constraints follow.
+    // A role or a circumstance: a named group of teachers (nicks); `old` renames it, and its constraints and sub-roles follow.
     const name = str(body.name, 120), old = str(body.old, 120);
+    const kind = GROUP_KINDS.includes(body.kind) ? body.kind : "ظرف", parent = kind === "دور" ? str(body.parent, 120) : "";
     const members = (Array.isArray(body.members) ? body.members : []).map((m: unknown) => str(m, 120)).filter(Boolean);
-    if (!name) return fail("اسم الظرف مطلوب");
+    if (!name) return fail("الاسم مطلوب");
     if (name !== old) {
       const { data: taken } = await db.from("constraint_groups").select("name").eq("name", name).maybeSingle();
-      if (taken) return fail("الاسم مستعمل لظرف آخر");
+      if (taken) return fail("الاسم مستعمل");
     }
-    const { error } = await db.from("constraint_groups").upsert({ name, members: members.join("،"), note: str(body.note, 2000) });
+    const { error } = await db.from("constraint_groups").upsert({ name, kind, parent, members: members.join("،"), note: str(body.note, 2000) });
     if (error) return fail("تعذر الحفظ", 500);
     if (old && old !== name) {
-      await db.from("constraints").update({ target: name }).eq("target_type", "ظرف").eq("target", old);
+      await db.from("constraints").update({ target: name }).eq("target_type", kind).eq("target", old);
+      await db.from("constraint_groups").update({ parent: name }).eq("parent", old);
       await db.from("constraint_groups").delete().eq("name", old);
     }
     return json({ ok: true });
   }
   if (action === "group_delete") {
     const name = str(body.name, 120);
-    const { count } = await db.from("constraints").select("id", { count: "exact", head: true }).eq("target_type", "ظرف").eq("target", name);
-    if (count) return fail("للظرف " + count + " قيد؛ احذفها أولاً");
+    const { data: g } = await db.from("constraint_groups").select("kind").eq("name", name).maybeSingle();
+    const { count } = await db.from("constraints").select("id", { count: "exact", head: true }).eq("target_type", g?.kind ?? "ظرف").eq("target", name);
+    if (count) return fail("له " + count + " قيد؛ احذفها أولاً");
+    const { count: subs } = await db.from("constraint_groups").select("name", { count: "exact", head: true }).eq("parent", name);
+    if (subs) return fail("له أدوار فرعية؛ احذفها أولاً");
     const { error } = await db.from("constraint_groups").delete().eq("name", name);
     return error ? fail("تعذر الحذف", 500) : json({ ok: true });
   }
@@ -233,6 +241,11 @@ Deno.serve(async (req) => {
     // The checklist: a constraint ticked off after checking the exported timetable.
     const { error } = await db.from("constraints").update({ checked: !!body.checked }).eq("id", Number(body.id));
     return error ? fail("تعذر التحديث", 500) : json({ ok: true });
+  }
+  if (action === "rule_sheet_text") {
+    // The sheet's wording, written by hand under each constraint of the list.
+    const { error } = await db.from("constraints").update({ sheet_text: str(body.sheet_text, 3000) }).eq("id", Number(body.id)).neq("target_type", "");
+    return error ? fail("تعذر الحفظ", 500) : json({ ok: true });
   }
   if (action === "rule_approve") {
     // Approved by the administration, or not: set by hand, one constraint at a time.

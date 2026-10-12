@@ -161,6 +161,49 @@
   .lost { display:inline-block; font-size:12px; font-weight:700; color:#7a5300; background:var(--gold-soft); border-radius:8px; padding:1px 8px; }
   button.appr { flex:none; padding:1px 8px; font-size:12px; font-weight:700; border-radius:99px; background:#fff; color:var(--mute); border:1.5px dashed var(--line); box-shadow:none; white-space:nowrap; }
   button.appr.on { background:#1f4e79; border:1.5px solid #1f4e79; color:#fff; }
+  /* Coverage (spec 2026-10-13): the cell menu, exceptions, temporary cells, members under a page. */
+  .chip.subrole { font-size:13px; border-style:dotted; }
+  .dtabs { margin-bottom:10px; }
+  table.wk button.free { background:#fff; border-color:var(--gold); color:var(--gold); }
+  table.wk button.exc { box-shadow:inset 0 0 0 2px var(--gold); }
+  table.wk button.exc::after { content:"✎"; font-size:10px; margin-inline-start:1px; }
+  table.wk button.tmp::before { content:"⏳"; font-size:9px; }
+  table.wk button.dayb { height:30px; background:#eef3f7; color:var(--navy); font-size:12px; padding:0 2px; }
+  .veil { position:fixed; inset:0; background:rgba(11,36,51,.35); z-index:30; }
+  .sheetMenu { position:fixed; left:0; right:0; bottom:0; z-index:31; background:#fff; border-radius:18px 18px 0 0; padding:14px 16px calc(16px + env(safe-area-inset-bottom)); max-width:560px; margin:0 auto; box-shadow:0 -8px 30px rgba(11,58,90,.2); }
+  .sheetMenu .mt { font-weight:700; color:var(--navy); margin-bottom:8px; }
+  .sheetMenu .opts { display:grid; grid-template-columns:repeat(auto-fill, minmax(96px, 1fr)); gap:6px; }
+  .sheetMenu .opt { min-height:44px; padding:6px; border-radius:12px; background:#fbfdfe; color:var(--ink); border:1.5px solid var(--line); font-weight:700; box-shadow:none; }
+  .sheetMenu .opt.hard { border-color:var(--err); color:#7d1a10; } .sheetMenu .opt.soft { border-color:var(--ok); color:#0f5132; }
+  .sheetMenu .opt.free, .sheetMenu .opt.same { color:var(--mute); }
+  .sheetMenu .opt.on { background:var(--blue); border-color:var(--blue); color:#fff; }
+  .sheetMenu .wrow { display:flex; gap:6px; margin-top:8px; } .sheetMenu .wrow input { flex:1; padding:8px 10px; } .sheetMenu .wrow .opt { flex:none; width:96px; }
+  .durSw { display:flex; margin-top:10px; border:1.5px solid var(--blue); border-radius:12px; overflow:hidden; }
+  .durSw button { flex:1; min-height:42px; border-radius:0; background:#fff; color:var(--blue); box-shadow:none; }
+  .durSw button.on { background:var(--blue); color:#fff; }
+  .builder.embedded { margin:4px 0 10px; border-width:1.5px; }
+  .tline.open { outline:2px solid var(--sky); }
+  .stx { display:flex; gap:6px; align-items:flex-start; margin:6px 30px 0 0; }
+  .stx textarea { min-height:34px; padding:5px 9px; font-size:14px; border-radius:9px; background:#fff; }
+  .stx button { flex:none; padding:5px 12px; font-size:14px; }
+  .rule .top .tx { font-size:15px; }
+  /* Phones: the content fits the screen's width. */
+  @media (max-width:560px) {
+    main { padding:0 8px 24px; }
+    .card { padding:12px; border-radius:14px; }
+    #scrBody.card { padding:10px; }
+    .tabs { gap:3px; padding:4px; } .tabs button { padding:9px 2px; font-size:14px; }
+    .tabs.sub button { font-size:14px; }
+    .builder { padding:8px; }
+    table.wk { border-spacing:2px; } table.wk th.d { width:50px; }
+    table.wk button { height:36px; font-size:12px; border-radius:7px; }
+    table.wk button.dayb { font-size:11px; }
+    .rule .top { flex-wrap:wrap; } .rule .top .tx { flex-basis:calc(100% - 40px); }
+    .stx { margin-right:0; }
+    .scrHead h2 { font-size:16px; padding:6px 10px; }
+    .row > button { min-height:42px; }
+    .tline { padding:9px 10px; }
+  }
   footer { text-align:center; color:var(--mute); font-size:13px; padding:8px 16px 28px; }
   @media (prefers-reduced-motion: reduce) { * { transition:none !important; } }
 </style>
@@ -192,9 +235,10 @@
       <div id="listView" class="hidden">
       <div class="tabs sub" id="durTabs"></div>
       <div class="row" style="margin:0 0 12px">
-        <button id="ruleAdd">+ إضافة قيد</button>
-        <button id="rulesCsv" class="ghost">تصدير CSV</button>
-        <button id="sheetImport" class="ghost">استيراد CSV القيود</button><input id="sheetFile" type="file" accept=".csv,text/csv" class="hidden">
+        <!-- Stopped (spec 2026-10-13): the code stays, the buttons come back when the CSV is asked for again. -->
+        <button id="ruleAdd" class="hidden">+ إضافة قيد</button>
+        <button id="rulesCsv" class="ghost hidden">تصدير CSV</button>
+        <button id="sheetImport" class="ghost hidden">استيراد CSV القيود</button><input id="sheetFile" type="file" accept=".csv,text/csv" class="hidden">
       </div>
       <div class="row" style="margin:0 0 10px;justify-content:space-between"><span id="rulesMsg" class="meta"></span><button id="rulesReset" class="ghost" style="padding:6px 12px;font-size:14px">رفع الشطب عن الكل</button></div>
       <div id="rulesList"></div>
