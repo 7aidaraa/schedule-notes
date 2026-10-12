@@ -439,7 +439,8 @@ function renderRules() {
   }));
   const rows = ordered(all.filter(r => r.duration === DUR));
   const done = rows.filter(r => r.checked).length;
-  $('rulesMsg').textContent = rows.length ? 'مستوفى ' + done + ' من ' + rows.length + (done === rows.length ? ' — اكتملت ✓' : '') : '';
+  const appr = rows.filter(r => r.approved).length;
+  $('rulesMsg').textContent = rows.length ? 'مستوفى ' + done + ' من ' + rows.length + (done === rows.length ? ' — اكتملت ✓' : '') + ' · معتمد ' + appr + ' من ' + rows.length : '';
   const out = [];
   let dept = null;
   for (const r of rows) {
@@ -450,6 +451,17 @@ function renderRules() {
 }
 const levelText = r => r.level === 'مرن موزون' ? 'مرن' + (r.weight !== null && r.weight !== undefined ? ' ' + r.weight : '') : r.level;
 const targetText = r => r.target_type === 'معلّم' || r.target_type === 'بارامتر' ? r.target : r.target_type + ': ' + r.target;
+// «معتمد من الإدارة / غير معتمد»: one tap switches it (it does not tick the constraint off).
+function approveBtn(r, redraw) {
+  const b = el('button', { type: 'button', className: 'appr' + (r.approved ? ' on' : ''), textContent: r.approved ? '✓ معتمد' : 'غير معتمد', title: 'معتمد من الإدارة' });
+  b.onclick = async e => {
+    e.stopPropagation();
+    r.approved = !r.approved; redraw();
+    try { await call('rule_approve', { id: r.id, approved: r.approved }); }
+    catch (err) { r.approved = !r.approved; redraw(); toast(err, true); }
+  };
+  return b;
+}
 // One line per constraint: a tap ticks it off (saved on the server); «⋯» opens its details.
 function ruleItem(r) {
   const box = el('div', { className: 'rule ' + ruleColor(r) + (r.checked ? ' done' : '') });
@@ -462,7 +474,7 @@ function ruleItem(r) {
     el('span', { className: 'ct', textContent: (isProposed(r.ctype) ? '🆕 ' : '') + r.ctype }),
     el('span', { style: 'flex:1' }),
     lvl ? el('span', { className: 'lv ' + strength(r), textContent: lvl }) : null,
-    el('span', { className: 'st', textContent: STATE_ICON[r.sheet_state] || '', title: r.sheet_state }), more),
+    el('span', { className: 'st', textContent: STATE_ICON[r.sheet_state] || '', title: r.sheet_state }), approveBtn(r, renderRules), more),
     el('div', { className: 'tx line' }, el('b', { textContent: targetText(r) }),
       r.value ? ' — ' : '', r.pattern ? r.pattern + ' · ' : '', r.value ? el('span', { className: 'v', textContent: r.value }) : null));
   if (r.active === false) box.append(el('div', { className: 'sub', textContent: 'غير مفعَّل' }));
@@ -498,6 +510,7 @@ function ruleDetail(r) {
     link ? el('div', { className: 'meta', textContent: '🔗 مرتبط بـ: ' + lineOf(link) }) : null,
     sec('⁉️ الملاحظة', el('div', { className: 'panel', style: 'margin-top:0', textContent: r.reason || 'لا أعلم' })),
     sec('⛓️‍💥 صف الشيت', el('div', { className: 'panel', style: 'margin-top:0' }, sheetRow(r))),
+    sec('🏛️ الإدارة', el('div', { className: 'chips' }, approveBtn(r, () => openScreen('تفاصيل القيد', ruleDetail(r))))),
     sec('↪️ نقل إلى', move),
     el('div', { className: 'row', style: 'margin-top:18px' }, edit, del));
 }
@@ -1087,11 +1100,14 @@ function miniRule(r, withTarget) {
   const more = el('button', { type: 'button', className: 'more', textContent: '⋯', title: 'التفاصيل' });
   more.onclick = () => openScreen('تفاصيل القيد', ruleDetail(r));
   const lvl = levelText(r);
-  return el('div', { className: 'rule ' + ruleColor(r), style: 'cursor:default' }, el('div', { className: 'top' },
+  const box = el('div', { className: 'rule ' + ruleColor(r), style: 'cursor:default' });
+  const redraw = () => box.querySelector('.appr').replaceWith(approveBtn(r, redraw));
+  box.append(el('div', { className: 'top' },
     el('span', { className: 'ct', textContent: (isProposed(r.ctype) ? '🆕 ' : '') + r.ctype }),
     el('span', { className: 'tx' }, withTarget ? el('b', { textContent: targetText(r) + ' ' }) : null, r.pattern ? r.pattern + ' · ' : '', r.value || ''),
     lvl ? el('span', { className: 'lv ' + strength(r), textContent: lvl }) : null, r.active === false ? el('span', { className: 'meta', textContent: 'غير مفعَّل' }) : null,
-    el('span', { className: 'st', textContent: STATE_ICON[r.sheet_state] || '', title: r.sheet_state }), more));
+    el('span', { className: 'st', textContent: STATE_ICON[r.sheet_state] || '', title: r.sheet_state }), approveBtn(r, redraw), more));
+  return box;
 }
 // The other sheet types of the target, one line each: its rows, and «+» to add one in place.
 function typeSections(tt, target, rows) {
