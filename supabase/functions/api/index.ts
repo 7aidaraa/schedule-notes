@@ -246,8 +246,9 @@ Deno.serve(async (req) => {
     const { data: prev } = await db.from("teachers").select("name,nick").eq("name", name).maybeSingle();
     if (!prev) return fail("المعلم غير موجود", 404);
     const nick = prev.nick || prev.name;
-    const { count } = await db.from("constraints").select("id", { count: "exact", head: true }).eq("target_type", "معلّم").eq("target", nick);
-    if (count) return fail("له " + count + " قيد؛ احذفها أولاً");
+    // The teacher goes with its own constraints and its place in every role and circumstance.
+    const { error: e1 } = await db.from("constraints").delete().eq("target_type", "معلّم").eq("target", nick);
+    if (e1) return fail("تعذر حذف قيوده", 500);
     const { data: gs } = await db.from("constraint_groups").select("name,members");
     for (const g of gs ?? []) {
       const ms = String(g.members || "").split("،");

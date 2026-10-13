@@ -204,12 +204,16 @@
   .tg .sxs { display:inline-flex; gap:4px; }
   .tg select.sx { width:auto; padding:3px 6px; font-size:14px; border-radius:8px; border-color:var(--sky); }
   /* The floating save and back (bottom right), and folded lists. */
-  #fab { position:fixed; right:14px; bottom:calc(16px + env(safe-area-inset-bottom)); z-index:25; display:flex; flex-direction:column; gap:10px; }
-  #fab button { width:52px; height:52px; padding:0; border-radius:50%; font-size:22px; box-shadow:0 4px 14px rgba(11,58,90,.3); }
+  /* The top bar: save and back in the top right corner, then the screen's title; it sticks to the top and takes its own room (it covers nothing). */
+  #topbar { position:sticky; top:0; z-index:25; display:flex; align-items:center; gap:8px; margin:0 -4px 12px; padding:8px 4px; background:var(--bg); }
+  #topbar.hidden { display:none; }
+  #fab { display:flex; gap:8px; flex:none; }
+  #fab button { width:44px; height:44px; padding:0; border-radius:50%; font-size:20px; box-shadow:0 2px 8px rgba(11,58,90,.2); }
   #fabSave { background:var(--ok); }
   #fabSave:disabled { background:#9fb3c2; opacity:1; cursor:default; }
   #fabBack { background:#fff; color:var(--navy); border:1.5px solid var(--navy); }
-  main { padding-bottom:140px; }
+  #scrTitle { margin:0; flex:1; min-width:0; font-size:17px; color:var(--navy); background:#fff; padding:8px 14px; border-radius:12px; box-shadow:var(--shadow); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #scrTitle:empty { display:none; }
   details.fold { border-bottom:1px solid var(--line); padding:8px 0; }
   details.fold:last-child { border-bottom:0; }
   details.fold > summary { cursor:pointer; list-style:none; display:flex; align-items:center; gap:6px; font-size:16px; color:var(--navy); padding:4px 0; }
@@ -221,9 +225,37 @@
   details.danger { margin-top:22px; font-size:13px; color:var(--mute); }
   details.danger > summary { cursor:pointer; }
   .sheetMenu .softBox { margin-top:6px; padding:8px; border:1.5px dashed var(--ok); border-radius:12px; }
+  /* «التغطية»: a summary, then three sections that unfold into tiles. */
+  .stats { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-bottom:12px; }
+  .stat { background:#fff; border:1px solid var(--line); border-radius:14px; padding:10px 8px; text-align:center; box-shadow:var(--shadow); }
+  .stat b { display:block; font-size:22px; line-height:1.2; color:var(--navy); }
+  .stat span { font-size:12px; color:var(--mute); }
+  .stat.warn b { color:var(--err); }
+  details.sec { background:#fff; border:1px solid var(--line); border-radius:16px; margin-bottom:10px; box-shadow:var(--shadow); overflow:hidden; }
+  details.sec > summary { list-style:none; cursor:pointer; display:flex; align-items:center; gap:12px; padding:14px; -webkit-tap-highlight-color:transparent; }
+  details.sec > summary::-webkit-details-marker { display:none; }
+  details.sec > summary::after { content:""; width:9px; height:9px; margin-inline-start:auto; border:solid var(--mute); border-width:0 2px 2px 0; transform:rotate(45deg); transition:transform .2s; }
+  details.sec[open] > summary::after { transform:rotate(-135deg); }
+  details.sec[open] > summary { border-bottom:1px solid var(--line); background:linear-gradient(180deg, #f7fafc, #fff); }
+  details.sec .ic { flex:none; width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center; color:#fff; background:linear-gradient(135deg, var(--navy), var(--sky)); }
+  details.sec .ic svg { width:24px; height:24px; }
+  details.sec .st { display:flex; flex-direction:column; line-height:1.4; }
+  details.sec .st b { font-size:17px; color:var(--navy); }
+  details.sec .st small { font-size:12px; color:var(--mute); }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px; padding:12px; }
+  .tile { display:flex; flex-direction:column; align-items:flex-start; gap:4px; min-height:64px; padding:10px 12px; text-align:right; border-radius:12px; background:#fbfdfe; color:var(--ink);
+    border:1px solid var(--line); border-inline-start:4px solid var(--line); box-shadow:none; font-weight:400; }
+  .tile:hover { box-shadow:0 2px 10px rgba(11,58,90,.1); }
+  .tile.has { border-inline-start-color:var(--gold); }
+  .tile.sub { margin-inline-start:14px; background:#f6f9fb; }
+  .tile .tn { font-weight:700; color:var(--navy); font-size:15px; line-height:1.4; }
+  .tile .tm { display:flex; gap:6px; flex-wrap:wrap; font-size:12px; color:var(--mute); }
+  .tile .tc { padding:0 7px; border-radius:99px; background:#eef3f7; }
+  .tile.has .tc { background:var(--gold-soft); color:#7a5300; font-weight:700; }
+  .tile.add { justify-content:center; align-items:center; border-style:dashed; border-inline-start-width:1px; color:var(--blue); font-weight:700; background:#fff; }
   /* Phones: the content fits the screen's width. */
   @media (max-width:560px) {
-    main { padding:0 8px 140px; }
+    main { padding:0 8px 24px; }
     .card { padding:12px; border-radius:14px; }
     #scrBody.card { padding:10px; }
     .tabs { gap:3px; padding:4px; } .tabs button { padding:9px 2px; font-size:14px; }
@@ -251,6 +283,8 @@
   <div class="school">أرسل ملاحظتك على الجدول</div>
 </header>
 <main>
+  <!-- Save and back (the only ones on the page), and the open screen's title. -->
+  <div id="topbar" class="hidden"><div id="fab"><button id="fabBack" class="hidden" type="button" title="رجوع" aria-label="رجوع">→</button><button id="fabSave" class="hidden" type="button" title="حفظ" aria-label="حفظ">✓</button></div><h2 id="scrTitle"></h2></div>
   <section id="login" class="card">
     <h2>الدخول</h2>
     <p class="lead">أدخل كلمة السر التي وصلتك.</p>
@@ -298,7 +332,6 @@
 
   <!-- Whatever opens gets the whole page, with a way back (the phone's back button too). -->
   <section id="screen" class="hidden">
-    <div class="scrHead"><h2 id="scrTitle"></h2></div>
     <div id="scrBody" class="card"></div>
   </section>
 
@@ -324,8 +357,6 @@
   </section>
 </main>
 <div id="toast"></div>
-<!-- Save and back: two floating buttons in the bottom corner (no other save or back button on the page). -->
-<div id="fab"><button id="fabSave" class="hidden" type="button" title="حفظ" aria-label="حفظ">✓</button><button id="fabBack" class="hidden" type="button" title="رجوع" aria-label="رجوع">→</button></div>
 
 <script src="grid.js"></script>
 <script src="app.js"></script>

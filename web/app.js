@@ -226,6 +226,8 @@ function fabSync() {
     $('fabSave').classList.toggle('hidden', !host);
     $('fabSave').disabled = !host || !host._can();
     $('fabBack').classList.toggle('hidden', !screenOpen());
+    if (!screenOpen()) $('scrTitle').textContent = '';
+    $('topbar').classList.toggle('hidden', !host && !screenOpen());
   });
 }
 $('fabSave').onclick = async () => { const h = fabHost(); if (h && h._can()) { $('fabSave').disabled = true; try { await h._save(); } finally { fabSync(); } } };
@@ -234,25 +236,31 @@ new MutationObserver(fabSync).observe(document.querySelector('main'), { subtree:
 addEventListener('input', fabSync, true);
 $('helpBtn').onclick = () => openScreen('تعليمات', el('div', { className: 'helpText', textContent: HELP }));
 
-const HELP = `سير المنصة
-١. المعلم يرسل ملاحظته على الجدول.
-٢. المطور يحوّلها إلى قيد بـ«حفظ القيد»، فيُحذف الطلب.
-٣. «التغطية» ثلاث قوائم مطوية: الأدوار، الأقسام، الظروف. ضغطة العنوان تفتحها.
-٤. الدور والظرف: أعضاؤهما باليد (✏️ الاسم والأعضاء، أو «الأدوار والظروف» في صفحة المعلم). الجناح دور تحت «مشرفو الأجنحة»، وعضوه يرث الاثنين.
-٥. القسم: «كل القسم» يسري على كل معلميه، وتبويب المادة على معلميها. تحت الشبكة «المعلمون» مطوية: ضغطة على المعلم تفتح صفحته، و«+ معلم» يضيف معلماً. ✏️ في صفحة المعلم تعدّل اسمه وقسمه ومادتيه، والحذف تحت «خيارات أخرى».
-   الحفظ والرجوع زرّان عائمان في الزاوية السفلى: ✓ (أخضر متى كان هناك ما يُحفظ) و→.
-٦. الشبكة لوحة، والقيد ملصق: اضغط مكاناً واختر.
-   - الخانة: فارغ · صلب · مرن 10…300 · مرن بوزن تكتبه، وتحتها ثابت / ⏳ مؤقت (وفي صفحة القسم: «اجتماع القسم»).
-   - رقم الحصة: الحجب في الأيام الخمسة، وملصقاتها: غائب في هذه الحصة، وللسابعة: حد أقصى في الأسبوع، سابعاته مع فلان، لا تجتمع مع السادسة؛ وللأولى والثانية: يبدأ بها على الأقل.
-   - اسم اليوم: الحجب في حصصه السبع، وملصقاته: غائب اليوم، لا حصة مكررة فيه.
-   - زاوية «☰ الأسبوع»: حصص متتابعة، يوم بلا حصص، استئذان صباحي، يستثنى من المراجعات، لا يحضر اجتماع القسم، لا سادسة بلا سابعة، لا تتزامن مع فلان (وللمادة: كتلة متجاورة).
-   الملصق المفعّل يظهر شارةً تحت رقم الحصة أو اسم اليوم، والغائب خانات داكنة «غ»، والاجتماع خانة زرقاء، وعدد ملصقات الأسبوع على الزاوية. ضغطة ملصق مفعّل تغيّر إلزامه ومدته أو تحذفه.
-   تحت الشبكة معلمو الدور أو القسم: ضغطة على المعلم تفتح شبكته.
-٧. شبكة المعلم: الموروث باهت بقفل، ومصدره في رأس القائمة. تعديله استثناء لهذا المعلم وحده (✎): «فارغ (إعفاء)» يرفعه، وغيره يحلّ محله، و«كما الموروث» يلغي الاستثناء. والملصقات كذلك.
-٨. «✓» يكتب الفرق وحده، والملاحظة (السبب) اختيارية.
-٩. «القائمة»: ثابتة ومؤقتة. ضغطة على القيد تشطبه، و«رفع الشطب عن الكل» يعيدها. تحت كل قيد خانة «صياغة الشيت» تكتبها بيدك، و«✓» يحفظ كل ما تغيّر منها. «⋯» للتفاصيل والوسم والنقل.
-١٠. التصدير إلى الشيت متوقف (يعود بطلب).
-١١. التحديث: اسحب الشاشة للأسفل.`;
+const HELP = `كيف أستعمل المنصة؟
+
+الأزرار
+✓ يحفظ ما غيّرته.   → يرجع إلى الصفحة السابقة.
+(في الأعلى يميناً، ويظهر ✓ أخضر متى وُجد ما يُحفظ.)
+
+القيود
+١. افتح «التغطية»، ثم اختر دوراً أو قسماً أو ظرفاً.
+٢. اضغط خانة في الجدول واختر: صلب أو مرن.
+   - رقم الحصة في الأعلى = الحصة في كل الأيام.
+   - اسم اليوم = اليوم كله.
+   - زر «☰ الأسبوع» = قيود الأسبوع (مثل: حصص متتابعة).
+٣. اضغط ✓ للحفظ.
+
+المعلم
+- يأخذ قيود قسمه ومادته وأدواره تلقائياً (تظهر باهتة).
+- لتغييرها له وحده: اضغط الخانة واختر غيرها، أو «فارغ» لإعفائه.
+- صفحته من: القسم ← «المعلمون» ← اسمه.
+- ✏️ في صفحته لتعديل بياناته.
+
+القائمة
+- كل القيود مرتبة. اضغط القيد لتشطبه بعد مراجعته.
+- اكتب تحته صياغة الشيت، ثم ✓.
+
+للتحديث: اسحب الشاشة للأسفل.`;
 
 // Pull down from the top of the page: the open tab reloads (an open form is never thrown away).
 (() => {
@@ -973,27 +981,53 @@ function foldBox(key, title, n, ...kids) {
 $('rvCover').onclick = () => { RVIEW = 'cover'; renderRules(); };
 $('rvList').onclick = () => { RVIEW = 'list'; renderRules(); };
 
+// Line icons for the three sections (drawn, so they follow the page's colours).
+const ICONS = {
+  roles: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 14.3c2.3.2 4 1.8 4.5 4.7"/></svg>',
+  depts: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 5l9 5.5"/><path d="M5 10v8M9.7 10v8M14.3 10v8M19 10v8"/><path d="M3 20h18"/></svg>',
+  circs: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M8.5 11.5h2l1-2 1.5 4 1-2h1.5"/></svg>',
+};
+const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+// «التغطية»: three sections, each a card that unfolds into tiles (name, teachers, constraints).
 function renderCover() {
-  const chip = (tt, target, label, n, cls) => {
-    const b = el('button', { type: 'button', className: 'chip' + (n ? ' has' : '') + (cls ? ' ' + cls : '') }, label, n ? el('small', { textContent: ' (' + n + ')' }) : null);
+  const tile = (tt, target, label, sub) => {
+    const n = tt === 'قسم' ? deptCount(target) : rowsOf(tt, target).length;
+    const m = teachersIn(tt, target).length;
+    const b = el('button', { type: 'button', className: 'tile' + (n ? ' has' : '') + (sub ? ' sub' : '') },
+      el('span', { className: 'tn', textContent: label }),
+      el('span', { className: 'tm' }, el('span', { textContent: plural(m, 'معلم', 'معلمين') }), el('span', { className: 'tc', textContent: n ? plural(n, 'قيد', 'قيود') : 'بلا قيود' })));
     b.onclick = () => openTarget(tt, target);
     return b;
   };
-  const addBtn = (label, onClick) => { const b = el('button', { type: 'button', className: 'chip', textContent: label, style: 'border-style:dashed' }); b.onclick = onClick; return b; };
+  const addTile = (label, onClick) => { const b = el('button', { type: 'button', className: 'tile add', textContent: label }); b.onclick = onClick; return b; };
+  const section = (key, title, icon, items, done, ...kids) => {
+    const d = el('details', { className: 'sec' });
+    const ic = el('span', { className: 'ic' }); ic.innerHTML = ICONS[icon];
+    d.append(el('summary', {}, ic, el('span', { className: 'st' }, el('b', { textContent: title }), el('small', { textContent: items ? 'العدد ' + items + ' · بقيود ' + done : 'لا شيء بعد' }))),
+      el('div', { className: 'tiles' }, ...kids.filter(Boolean)));
+    d.open = OPEN.has(key);
+    d.ontoggle = () => { if (d.open) OPEN.add(key); else OPEN.delete(key); };
+    return d;
+  };
   // Roles: each main role, then its sub-roles (the wings) right after it.
   const top = roles().filter(g => !g.parent || !roles().some(p => p.name === g.parent));
-  const roleChips = top.flatMap(g => [chip('دور', g.name, g.name, rowsOf('دور', g.name).length),
-    ...roles().filter(x => x.parent === g.name).map(x => chip('دور', x.name, '↲ ' + x.name, rowsOf('دور', x.name).length, 'subrole'))]);
+  const roleTiles = top.flatMap(g => [tile('دور', g.name, g.name), ...roles().filter(x => x.parent === g.name).map(x => tile('دور', x.name, x.name, true))]);
   const deptsHere = [...new Set(TEACHERS.map(t => t.department))].sort((a, b) => deptRank(a) - deptRank(b) || a.localeCompare(b, 'ar'));
-  const imp = el('button', { type: 'button', className: 'ghost', textContent: 'استيراد CSV المعلمين', style: 'padding:4px 12px;font-size:13px;margin-top:10px' });
+  const imp = el('button', { type: 'button', className: 'tile add', textContent: '⇪ استيراد CSV المعلمين' });
   const file = el('input', { type: 'file', accept: '.csv,text/csv', className: 'hidden' });
   imp.onclick = () => file.click();
   file.onchange = () => { const f = file.files[0]; file.value = ''; if (f) importTeachers(f); };
-  $('coverView').replaceChildren(el('div', { className: 'card', style: 'padding:6px 12px' },
-    foldBox('roles', 'الأدوار', roles().length, el('div', { className: 'chips' }, ...roleChips, addBtn('+ دور جديد', () => openScreen('دور جديد', groupForm(null, 'دور'))))),
-    foldBox('depts', 'الأقسام', deptsHere.length, el('div', { className: 'chips' }, ...deptsHere.map(d => chip('قسم', d, d, deptCount(d)))), imp, file),
-    foldBox('circs', 'الظروف', circs().length, el('div', { className: 'chips' }, ...circs().map(g => chip('ظرف', g.name, g.name, rowsOf('ظرف', g.name).length)),
-      addBtn('+ ظرف', () => openScreen('ظرف جديد', groupForm(null, 'ظرف')))))));
+  // The summary: constraints, teachers, and teachers with nothing at all yet.
+  const all = (RULES || []).length;
+  const bare = TEACHERS.filter(t => !inheritedOf(t).length && !rowsOf('معلّم', nickT(t)).length).length;
+  const stat = (n, label, warn) => el('div', { className: 'stat' + (warn && n ? ' warn' : '') }, el('b', { textContent: n }), el('span', { textContent: label }));
+  $('coverView').replaceChildren(
+    el('div', { className: 'stats' }, stat(all, 'قيد'), stat(TEACHERS.length, 'معلم'), stat(bare, 'بلا قيد', true)),
+    section('roles', 'الأدوار', 'roles', roles().length, roles().filter(g => rowsOf('دور', g.name).length).length,
+      ...roleTiles, addTile('+ دور جديد', () => openScreen('دور جديد', groupForm(null, 'دور')))),
+    section('depts', 'الأقسام', 'depts', deptsHere.length, deptsHere.filter(deptCount).length, ...deptsHere.map(d => tile('قسم', d, d)), imp, file),
+    section('circs', 'الظروف', 'circs', circs().length, circs().filter(g => rowsOf('ظرف', g.name).length).length,
+      ...circs().map(g => tile('ظرف', g.name, g.name)), addTile('+ ظرف جديد', () => openScreen('ظرف جديد', groupForm(null, 'ظرف')))));
 }
 const covLegend = () => el('div', { className: 'legend' }, el('span', { textContent: 'لا قيد', style: '--c:#fadcdc' }), el('span', { textContent: 'موروث فقط', style: '--c:#fff1cc' }), el('span', { textContent: 'له قيد خاص', style: '--c:#e2f4e8' }));
 // A teacher's line: its name and «موروث · خاص», coloured by coverage.
@@ -1467,12 +1501,14 @@ function teacherForm(t, dept) {
   const del = t ? delButton('حذف المعلم', async () => {
     await call('teacher_delete', { name: t.name });
     TEACHERS = TEACHERS.filter(x => x !== t);
+    RULES = (RULES || []).filter(r => !(r.target_type === 'معلّم' && sameName(r.target, nickT(t))));
+    GROUPS.forEach(g => { g.members = membersOf(g.name).filter(m => !sameName(m, nickT(t))).join('،'); });
     toast('حُذف ✓'); history.go(-2);
   }) : null;
   const lbl = x => el('div', { textContent: x, style: 'font-weight:700;color:var(--navy);font-size:14px;margin:10px 0 4px' });
   return onFab(el('div', { className: 'cform' }, ...[lbl('الاسم الكامل'), name, lbl('اسم الشهرة'), nick, lbl('القسم'), dsel, lbl('المادة'), subj, subj2,
     el('div', { className: 'row' }, save, fmsg),
-    del ? el('details', { className: 'danger' }, el('summary', { textContent: 'خيارات أخرى' }), el('div', { className: 'row' }, del, el('span', { className: 'meta', textContent: 'حذف المعلم (يُرفض إن كانت له قيود)' }))) : null].filter(Boolean)), save);
+    del ? el('details', { className: 'danger' }, el('summary', { textContent: 'خيارات أخرى' }), el('div', { className: 'row' }, del, el('span', { className: 'meta', textContent: 'حذف المعلم وقيوده الخاصة' }))) : null].filter(Boolean)), save);
 }
 // A constraint line on a page: its words and binding; «⋯» opens its details (not ticked off here).
 function miniRule(r) {
