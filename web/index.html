@@ -203,9 +203,27 @@
   .tg .tail { margin-inline-start:auto; font-size:12px; color:var(--mute); font-weight:400; }
   .tg .sxs { display:inline-flex; gap:4px; }
   .tg select.sx { width:auto; padding:3px 6px; font-size:14px; border-radius:8px; border-color:var(--sky); }
+  /* The floating save and back (bottom right), and folded lists. */
+  #fab { position:fixed; right:14px; bottom:calc(16px + env(safe-area-inset-bottom)); z-index:25; display:flex; flex-direction:column; gap:10px; }
+  #fab button { width:52px; height:52px; padding:0; border-radius:50%; font-size:22px; box-shadow:0 4px 14px rgba(11,58,90,.3); }
+  #fabSave { background:var(--ok); }
+  #fabSave:disabled { background:#9fb3c2; opacity:1; cursor:default; }
+  #fabBack { background:#fff; color:var(--navy); border:1.5px solid var(--navy); }
+  main { padding-bottom:140px; }
+  details.fold { border-bottom:1px solid var(--line); padding:8px 0; }
+  details.fold:last-child { border-bottom:0; }
+  details.fold > summary { cursor:pointer; list-style:none; display:flex; align-items:center; gap:6px; font-size:16px; color:var(--navy); padding:4px 0; }
+  details.fold > summary::-webkit-details-marker { display:none; }
+  details.fold > summary::after { content:"▾"; margin-inline-start:auto; color:var(--mute); transition:transform .15s; }
+  details.fold[open] > summary::after { transform:rotate(180deg); }
+  details.fold > summary small { color:var(--mute); font-weight:400; }
+  details.fold .fbody { padding-top:8px; }
+  details.danger { margin-top:22px; font-size:13px; color:var(--mute); }
+  details.danger > summary { cursor:pointer; }
+  .sheetMenu .softBox { margin-top:6px; padding:8px; border:1.5px dashed var(--ok); border-radius:12px; }
   /* Phones: the content fits the screen's width. */
   @media (max-width:560px) {
-    main { padding:0 8px 24px; }
+    main { padding:0 8px 140px; }
     .card { padding:12px; border-radius:14px; }
     #scrBody.card { padding:10px; }
     .tabs { gap:3px; padding:4px; } .tabs button { padding:9px 2px; font-size:14px; }
@@ -280,7 +298,7 @@
 
   <!-- Whatever opens gets the whole page, with a way back (the phone's back button too). -->
   <section id="screen" class="hidden">
-    <div class="scrHead"><button id="scrBack" class="ghost" type="button">→ رجوع</button><h2 id="scrTitle"></h2></div>
+    <div class="scrHead"><h2 id="scrTitle"></h2></div>
     <div id="scrBody" class="card"></div>
   </section>
 
@@ -306,6 +324,8 @@
   </section>
 </main>
 <div id="toast"></div>
+<!-- Save and back: two floating buttons in the bottom corner (no other save or back button on the page). -->
+<div id="fab"><button id="fabSave" class="hidden" type="button" title="حفظ" aria-label="حفظ">✓</button><button id="fabBack" class="hidden" type="button" title="رجوع" aria-label="رجوع">→</button></div>
 
 <script src="grid.js"></script>
 <script src="app.js"></script>

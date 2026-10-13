@@ -68,7 +68,7 @@ function cleanRule(b: Record<string, any>) {
   };
 }
 const ruleError = (r: ReturnType<typeof cleanRule>) =>
-  !r.target ? "الهدف مطلوب" : !r.ctype ? "نوع القيد مطلوب" : !r.reason ? "الملاحظة (السبب) مطلوبة" : !r.text ? "نص القيد مطلوب" : "";
+  !r.target ? "الهدف مطلوب" : !r.ctype ? "نوع القيد مطلوب" : !r.text ? "نص القيد مطلوب" : ""; // the reason is optional (2026-10-13)
 const RULE_COLS = "id,created_at,department,text,level,reason,request_id,target_type,target,ctype,pattern,value,weight,active,duration,sheet_state,link_id,checked,approved,sheet_text";
 
 Deno.serve(async (req) => {
@@ -211,6 +211,49 @@ Deno.serve(async (req) => {
     const { count: subs } = await db.from("constraint_groups").select("name", { count: "exact", head: true }).eq("parent", name);
     if (subs) return fail("له أدوار فرعية؛ احذفها أولاً");
     const { error } = await db.from("constraint_groups").delete().eq("name", name);
+    return error ? fail("تعذر الحذف", 500) : json({ ok: true });
+  }
+  // ---- Teachers: added, edited and deleted by hand; a new nick carries its constraints and memberships along ----
+  if (action === "teacher_save") {
+    const old = str(body.old, 120), name = str(body.name, 120), nick = str(body.nick, 120), department = str(body.department, 80);
+    if (!name || !department) return fail("الاسم والقسم مطلوبان");
+    const row = { name, nick: nick || null, department, subject: str(body.subject, 80), subject2: str(body.subject2, 80) };
+    if (name !== old) {
+      const { data: taken } = await db.from("teachers").select("name").eq("name", name).maybeSingle();
+      if (taken) return fail("الاسم موجود");
+    }
+    if (!old) {
+      const { error } = await db.from("teachers").insert(row);
+      return error ? fail("تعذر الحفظ", 500) : json({ ok: true });
+    }
+    const { data: prev } = await db.from("teachers").select("name,nick").eq("name", old).maybeSingle();
+    if (!prev) return fail("المعلم غير موجود", 404);
+    const { error } = await db.from("teachers").update(row).eq("name", old);
+    if (error) return fail("تعذر الحفظ", 500);
+    const was = prev.nick || prev.name, now = nick || name;
+    if (was !== now) {
+      await db.from("constraints").update({ target: now }).eq("target_type", "معلّم").eq("target", was);
+      const { data: gs } = await db.from("constraint_groups").select("name,members");
+      for (const g of gs ?? []) {
+        const ms = String(g.members || "").split("،");
+        if (ms.includes(was)) await db.from("constraint_groups").update({ members: ms.map((m) => m === was ? now : m).join("،") }).eq("name", g.name);
+      }
+    }
+    return json({ ok: true });
+  }
+  if (action === "teacher_delete") {
+    const name = str(body.name, 120);
+    const { data: prev } = await db.from("teachers").select("name,nick").eq("name", name).maybeSingle();
+    if (!prev) return fail("المعلم غير موجود", 404);
+    const nick = prev.nick || prev.name;
+    const { count } = await db.from("constraints").select("id", { count: "exact", head: true }).eq("target_type", "معلّم").eq("target", nick);
+    if (count) return fail("له " + count + " قيد؛ احذفها أولاً");
+    const { data: gs } = await db.from("constraint_groups").select("name,members");
+    for (const g of gs ?? []) {
+      const ms = String(g.members || "").split("،");
+      if (ms.includes(nick)) await db.from("constraint_groups").update({ members: ms.filter((m) => m !== nick).join("،") }).eq("name", g.name);
+    }
+    const { error } = await db.from("teachers").delete().eq("name", name);
     return error ? fail("تعذر الحذف", 500) : json({ ok: true });
   }
   if (action === "teachers_sync") {
