@@ -176,8 +176,8 @@ Deno.serve(async (req) => {
     if (bad) return fail(bad);
     const del = (Array.isArray(body.del) ? body.del : []).map(Number).filter(Number.isFinite).slice(0, 200);
     if (del.length) {
-      // Only rows of this target, of the two grid types.
-      const { error } = await db.from("constraints").delete().in("id", del).eq("target_type", tt).eq("target", target).in("ctype", ["لا حصّة", "خانات محجوبة"]);
+      // Only rows of this target (its grid cells and its stickers).
+      const { error } = await db.from("constraints").delete().in("id", del).eq("target_type", tt).eq("target", target);
       if (error) return fail("تعذر الحفظ", 500);
     }
     if (!add.length) return json({ ok: true, ids: [] });

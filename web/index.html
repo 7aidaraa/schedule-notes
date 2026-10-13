@@ -187,6 +187,22 @@
   .stx textarea { min-height:34px; padding:5px 9px; font-size:14px; border-radius:9px; background:#fff; }
   .stx button { flex:none; padding:5px 12px; font-size:14px; }
   .rule .top .tx { font-size:15px; }
+  /* Stickers (spec 2026-10-13 §12): badges under a period or a day, the corner «الأسبوع», absence and meetings in the cells. */
+  table.wk th .bd { display:block; font-size:10px; line-height:1.35; color:#7a5300; background:var(--gold-soft); border-radius:6px; margin-top:2px; padding:0 2px; font-weight:700; overflow-wrap:anywhere; }
+  table.wk th { vertical-align:top; }
+  table.wk th button.corner { height:auto; min-height:28px; padding:2px; line-height:1.25; white-space:normal; background:var(--navy); color:#fff; font-size:11px; }
+  table.wk button.abs { background:#3d4b57; border-color:#3d4b57; color:#fff; }
+  table.wk button.meet { background:#dbe9f6; border-color:var(--sky); color:var(--navy); font-size:10px; }
+  .sheetMenu { max-height:85vh; overflow-y:auto; }
+  .sheetMenu .st { margin-top:10px; border-top:1px dashed var(--line); padding-top:8px; }
+  .sheetMenu .st .lb { font-size:12px; color:var(--mute); font-weight:700; margin-bottom:6px; }
+  .tg { display:flex; align-items:center; flex-wrap:wrap; gap:6px 8px; min-height:44px; padding:7px 10px; border:1.5px solid var(--line); border-radius:12px; margin-bottom:6px; font-size:15px; background:#fbfdfe; cursor:pointer; }
+  .tg.on { border-color:var(--ok); background:#e2f4e8; font-weight:700; }
+  .tg.inh { border-style:dashed; background:repeating-linear-gradient(45deg,#e9edf1,#e9edf1 5px,#f7f9fb 5px,#f7f9fb 10px); }
+  .tg.exc { border-color:var(--gold); }
+  .tg .tail { margin-inline-start:auto; font-size:12px; color:var(--mute); font-weight:400; }
+  .tg .sxs { display:inline-flex; gap:4px; }
+  .tg select.sx { width:auto; padding:3px 6px; font-size:14px; border-radius:8px; border-color:var(--sky); }
   /* Phones: the content fits the screen's width. */
   @media (max-width:560px) {
     main { padding:0 8px 24px; }

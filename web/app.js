@@ -195,10 +195,14 @@ const HELP = `سير المنصة
    أحمر = لا قيد له · أصفر = موروث فقط · أخضر = له قيد خاص.
 ٤. الدور والظرف: أعضاؤهما باليد (✏️ الاسم والأعضاء، أو «الأدوار والظروف» في بطاقة المعلم). الجناح دور تحت «مشرفو الأجنحة»، وعضوه يرث الاثنين.
 ٥. القسم: «كل القسم» يسري على كل معلميه، وتبويب المادة على معلميها.
-٦. الشبكة: ضغطة الخانة تفتح قائمة: فارغ · صلب · مرن 10…300 · مرن بوزن تكتبه، وتحتها ثابت / ⏳ مؤقت.
-   ضغطة رقم الحصة تسري على الأيام الخمسة، وضغطة اليوم على حصصه السبع.
+٦. الشبكة لوحة، والقيد ملصق: اضغط مكاناً واختر.
+   - الخانة: فارغ · صلب · مرن 10…300 · مرن بوزن تكتبه، وتحتها ثابت / ⏳ مؤقت (وفي صفحة القسم: «اجتماع القسم»).
+   - رقم الحصة: الحجب في الأيام الخمسة، وملصقاتها: غائب في هذه الحصة، وللسابعة: حد أقصى في الأسبوع، سابعاته مع فلان، لا تجتمع مع السادسة؛ وللأولى والثانية: يبدأ بها على الأقل.
+   - اسم اليوم: الحجب في حصصه السبع، وملصقاته: غائب اليوم، لا حصة مكررة فيه.
+   - زاوية «☰ الأسبوع»: حصص متتابعة، يوم بلا حصص، استئذان صباحي، يستثنى من المراجعات، لا يحضر اجتماع القسم، لا سادسة بلا سابعة، لا تتزامن مع فلان (وللمادة: كتلة متجاورة).
+   الملصق المفعّل يظهر شارةً تحت رقم الحصة أو اسم اليوم، والغائب خانات داكنة «غ»، والاجتماع خانة زرقاء، وعدد ملصقات الأسبوع على الزاوية. ضغطة ملصق مفعّل تغيّر إلزامه ومدته أو تحذفه.
    تحت الشبكة معلمو الدور أو القسم: ضغطة على المعلم تفتح شبكته.
-٧. شبكة المعلم: الموروث باهت، ومصدره في رأس قائمة الخانة. تعديله استثناء لهذا المعلم وحده (✎): «فارغ (إعفاء)» يرفعه، وغيره يحلّ محله، و«كما الموروث» يلغي الاستثناء.
+٧. شبكة المعلم: الموروث باهت بقفل، ومصدره في رأس القائمة. تعديله استثناء لهذا المعلم وحده (✎): «فارغ (إعفاء)» يرفعه، وغيره يحلّ محله، و«كما الموروث» يلغي الاستثناء. والملصقات كذلك.
 ٨. «حفظ» يكتب الفرق وحده، والملاحظة (السبب) إلزامية.
 ٩. «القائمة»: ثابتة ومؤقتة. ضغطة على القيد تشطبه، و«رفع الشطب عن الكل» يعيدها. تحت كل قيد خانة «صياغة الشيت» تكتبها بيدك. «⋯» للتفاصيل والوسم والنقل.
 ١٠. التصدير إلى الشيت متوقف (يعود بطلب).
@@ -460,7 +464,9 @@ function approveBtn(r, redraw) {
 const targetLabel = r => r.target_type === 'معلّم' || r.target_type === 'بارامتر' || r.target_type === 'دور' ? r.target : r.target_type + ' ' + r.target;
 function phrase(r) {
   let what = r.ctype + (r.value ? ': ' + (r.pattern ? r.pattern + ' · ' : '') + r.value : '');
-  if (r.ctype === 'لا حصّة') what = 'لا حصّة ' + r.value + ' كل الأيام';
+  const so = stickOf(r);
+  if (so) what = stickText(so.s, so.pos, so.x);
+  else if (r.ctype === 'لا حصّة') what = 'لا حصّة ' + r.value + ' كل الأيام';
   else if (r.ctype === 'خانات محجوبة') what = 'لا حصّة ' + r.value;
   if (r.level === 'إعفاء') what = 'إعفاء من ' + what;
   const lv = r.level === 'إعفاء' ? '' : levelText(r);
@@ -525,8 +531,9 @@ function ruleDetail(r) {
     return b;
   }));
   // A grid row is edited on its grid; any other row in the builder.
-  const edit = el('button', { type: 'button', textContent: Grid.managed(r) ? '▦ افتح الشبكة' : '✏️ تعديل' });
-  edit.onclick = () => Grid.managed(r) ? openTarget(r.target_type, r.target) : openScreen('تعديل قيد', builder({ rule: r }));
+  const onGrid = Grid.managed(r) || !!stickOf(r);
+  const edit = el('button', { type: 'button', textContent: onGrid ? '▦ افتح الشبكة' : '✏️ تعديل' });
+  edit.onclick = () => onGrid ? openTarget(r.target_type, r.target) : openScreen('تعديل قيد', builder({ rule: r }));
   const del = delButton('حذف القيد', async () => { await call('rule_delete', { id: r.id }); RULES = RULES.filter(x => x !== r); toast('حُذف ✓'); closeScreen(); });
   del.textContent = '🗑️ حذف';
   return el('div', {},
@@ -1037,8 +1044,10 @@ function deptPage(d, tab) {
 
 // The cell menu: «فارغ» · صلب · مرن 10 … 300 · مرن (a weight written by hand), and the switch ثابت / مؤقت (ثابت by default).
 // On a teacher's inherited cell: «كما الموروث» drops the teacher's own cell, «فارغ» exempts the teacher from it.
+// The same menu serves the stickers: `levels` says which bindings a sticker takes ('soft', 'fixed', 'none'), `extra` adds the stickers of a place,
+// and 'off' leaves the stickers alone (the corner «الأسبوع»).
 const WEIGHTS = [10, 30, 50, 100, 300];
-function cellMenu({ title, cur, inh, onPick }) {
+function cellMenu({ title, cur, inh, onPick, extra, levels = 'all', nullLabel = 'فارغ' }) {
   let dur = cur ? cur.dur || 'ثابتة' : 'ثابتة';
   const veil = el('div', { className: 'veil' });
   const sheet = el('div', { className: 'sheetMenu', role: 'dialog' });
@@ -1061,16 +1070,78 @@ function cellMenu({ title, cur, inh, onPick }) {
   const w = el('input', { type: 'number', inputMode: 'numeric', min: 0, placeholder: 'الوزن', value: cur && cur.lv === 'مرن موزون' && !WEIGHTS.includes(cur.w) ? cur.w : '' });
   const wOk = el('button', { type: 'button', className: 'opt soft', textContent: 'مرن ✓' });
   wOk.onclick = () => { const n = Number(digits(w.value)); if (w.value === '' || !(n >= 0)) return w.focus(); pickIt({ lv: 'مرن موزون', w: Math.floor(n), dur }); };
-  const inhText = inh ? (inh.lv === 'صلب' ? 'صلب' : 'مرن ' + (inh.w ?? '؟')) : '';
-  sheet.append(el('div', { className: 'mt', textContent: title }),
-    el('div', { className: 'opts' }, ...[
-      inh ? opt('كما الموروث (' + inhText + ')', null, 'same') : null,
-      inh ? opt('فارغ (إعفاء)', { lv: 'إعفاء', w: null }, 'free') : opt('فارغ', null, 'free'),
-      opt('صلب', { lv: 'صلب', w: null }, 'hard'),
-      ...WEIGHTS.map(n => opt('مرن ' + n, { lv: 'مرن موزون', w: n }, 'soft'))].filter(Boolean)),
-    el('div', { className: 'wrow' }, w, wOk), durSw);
+  const inhText = inh ? (inh.lv === 'صلب' ? 'صلب' : inh.lv === 'مرن موزون' ? 'مرن ' + (inh.w ?? '؟') : 'مفعّل') : '';
+  const weighted = levels === 'all' || levels === 'soft';
+  const opts = levels === 'off' ? [] : [
+    inh ? opt('كما الموروث (' + inhText + ')', null, 'same') : null,
+    inh ? opt('فارغ (إعفاء)', { lv: 'إعفاء', w: null }, 'free') : opt(nullLabel, null, 'free'),
+    levels === 'all' ? opt('صلب', { lv: 'صلب', w: null }, 'hard') : null,
+    levels === 'fixed' ? opt('✓ مفعّل', { lv: 'صلب', w: null }, 'hard') : null,
+    levels === 'none' ? opt('✓ مفعّل', { lv: '', w: null }, 'soft') : null,
+    ...(weighted ? WEIGHTS.map(n => opt('مرن ' + n, { lv: 'مرن موزون', w: n }, 'soft')) : [])].filter(Boolean);
+  sheet.append(...[el('div', { className: 'mt', textContent: title }),
+    opts.length ? el('div', { className: 'opts' }, ...opts) : null,
+    weighted ? el('div', { className: 'wrow' }, w, wOk) : null,
+    extra ? extra(close) : null,
+    levels === 'off' ? null : durSw].filter(Boolean));
   document.body.append(veil, sheet);
 }
+
+// ---- Stickers (spec 2026-10-13 §12): every other kind of constraint is a sticker on a place of the grid:
+// a period's number ('col'), a day's name ('day'), the corner «الأسبوع» ('week') or a cell ('cell').
+// A sticker is one row: its type, its value (enc/dec), its binding: 'fixed' (always صلب), 'none' (no binding), 'soft' (مرن only), 'choose'.
+const TEACHERISH = ['معلّم', 'دور', 'ظرف'];
+const CLASSES = ['10/1', '10/2', '10/3', '10/4', '10/5', '10/6', '10/7', '11د1', '11د2', '11ع1', '11ع2', '11ع3', '11ع4', '11ع5', '12د1', '12ع1', '12ع2', '12ع3', '12ع4', '12ع5'];
+const colAt = (p, x) => ({ pos: p, x });
+const STICKERS = [
+  { id: 'absP', place: 'col', for: TEACHERISH, ctype: 'غائب في الحصة', lv: 'fixed', label: 'غائب في هذه الحصة',
+    enc: p => String(p), dec: v => colAt(Number(v), ''), badge: () => 'غائب' },
+  { id: 'cap7', place: 'col', at: [7], for: [...TEACHERISH, 'مادّة', 'قسم'], ctype: 'عدد الحصص الأخيرة', lv: 'fixed', label: 'حد أقصى في الأسبوع',
+    input: { kind: 'num', opts: [0, 1, 2, 3], def: 1 }, enc: (p, x) => String(x), dec: v => colAt(7, v), badge: x => 'حد ' + x },
+  { id: 'link7', place: 'col', at: [7], for: TEACHERISH, ctype: 'ربط السابعات', lv: 'soft', w: 5, label: 'سابعاته مع',
+    input: { kind: 'teacher' }, enc: (p, x) => x, dec: v => colAt(7, v), badge: x => 'مع ' + x },
+  { id: 'no67', place: 'col', at: [7], for: [...TEACHERISH, 'مادّة', 'قسم'], ctype: 'لا حصّتين أخيرتين متتاليتين', lv: 'choose', w: 50, label: 'لا تجتمع مع السادسة',
+    enc: () => '', dec: () => colAt(7, ''), badge: () => 'لا 6+7' },
+  { id: 'first', place: 'col', at: [1, 2], for: TEACHERISH, ctype: 'عدد الحصص الأولى', lv: 'choose', w: 50, label: 'يبدأ بها على الأقل (أيام)',
+    input: { kind: 'num', opts: [1, 2, 3, 4, 5], def: 3 }, enc: (p, x) => p + ': ' + x, dec: v => colAt(Number(v.split(':')[0]), (v.split(':')[1] || '').trim()), badge: x => x + ' أيام+' },
+  { id: 'subjClass', place: 'col', for: ['مادّة'], ctype: 'لا حصّة للمادّة في صفّ', lv: 'choose', label: 'لا حصة في الصف',
+    input: { kind: 'class' }, enc: (p, x) => x + ': ' + p, dec: v => colAt(Number((v.split(':')[1] || '').trim()), v.split(':')[0].trim()), badge: x => 'لا ' + x },
+  { id: 'absD', place: 'day', for: TEACHERISH, ctype: 'أيام التفرّغ', lv: 'fixed', label: 'غائب اليوم',
+    enc: d => DAYS[d], dec: v => ({ pos: DAYS.indexOf(v), x: '' }), badge: () => 'غائب' },
+  { id: 'dup', place: 'day', for: TEACHERISH, ctype: 'حصّة مكرّرة محجوبة', lv: 'choose', label: 'لا حصة مكررة فيه',
+    enc: d => DAYS[d], dec: v => ({ pos: DAYS.indexOf(v), x: '' }), badge: () => 'لا مكررة' },
+  { id: 'consec', place: 'week', for: TEACHERISH, ctype: 'يفضّل الحصص المتتابعة', lv: 'soft', w: 10, label: 'حصصه متتابعة' },
+  { id: 'freeDay', place: 'week', for: [...TEACHERISH, 'مادّة'], ctype: 'يوم بلا حصص', lv: 'choose', w: 50, label: 'له يوم بلا حصص' },
+  { id: 'late', place: 'week', for: TEACHERISH, ctype: 'يوم الاستئذان الصباحي', lv: 'choose', w: 200, label: 'يوم استئذان صباحي' },
+  { id: 'noRev', place: 'week', for: TEACHERISH, ctype: 'يستثنى من يوم المراجعات', lv: 'none', label: 'يستثنى من يوم المراجعات' },
+  { id: 'noMeet', place: 'week', for: TEACHERISH, ctype: 'إعفاء من اجتماع القسم', lv: 'none', label: 'لا يحضر اجتماع القسم' },
+  { id: 'no6w7', place: 'week', for: TEACHERISH, ctype: 'لا سادسة بلا سابعة', lv: 'choose', w: 50, label: 'لا سادسة بلا سابعة' },
+  { id: 'sync', place: 'week', for: TEACHERISH, ctype: 'عدم تزامن الحصص', lv: 'choose', label: 'لا تتزامن حصصه مع', input: { kind: 'teacher', cls: true } },
+  { id: 'block', place: 'week', for: ['مادّة'], ctype: 'توزيع المادّة في اليوم', pattern: 'متتاليتان', lv: 'choose', label: 'حصصها كتلة متجاورة',
+    input: { kind: 'num', opts: [2, 3], def: 2 } },
+  { id: 'meet', place: 'cell', for: ['قسم', 'مادّة'], ctype: 'اجتماع القسم', lv: 'choose', label: 'اجتماع القسم',
+    enc: k => { const [d, p] = k.split('|'); return DAYS[d] + ': ' + p; }, dec: v => { const [d, p] = v.split(':'); return { pos: Grid.key(DAYS.indexOf(d.trim()), Number(p)), x: '' }; } },
+];
+for (const s of STICKERS) if (s.place === 'week') { s.enc = s.enc || ((_, x) => String(x ?? '')); s.dec = s.dec || (v => ({ pos: 0, x: v })); }
+const STICK_CT = Object.fromEntries(STICKERS.map(s => [s.ctype, s]));
+const stickKey = (s, pos) => s.id + '|' + pos;
+const isSticker = r => !!STICK_CT[r.ctype];
+// A sticker row → { s, pos, x, lv, w, dur, key }; null when its value cannot be read.
+function stickOf(r) {
+  const s = STICK_CT[r.ctype];
+  if (!s) return null;
+  let d;
+  try { d = s.dec(String(r.value ?? '')); } catch { return null; }
+  if (d.pos === undefined || d.pos === null || Number.isNaN(d.pos) || d.pos === -1) return null;
+  return { s, pos: d.pos, x: d.x, lv: r.level || '', w: r.level === 'مرن موزون' ? r.weight : null, dur: r.duration === 'مؤقتة' ? 'مؤقتة' : 'ثابتة', key: stickKey(s, d.pos), id: r.id };
+}
+// The default binding of a sticker when it is put on.
+const stickDefault = s => s.lv === 'fixed' ? { lv: 'صلب', w: null } : s.lv === 'none' ? { lv: '', w: null } : s.w ? { lv: 'مرن موزون', w: s.w } : { lv: 'صلب', w: null };
+const stickLevels = s => s.lv === 'choose' ? 'all' : s.lv;
+const stickWhere = (s, pos) => s.place === 'col' ? 'الحصة ' + pos : s.place === 'day' ? DAYS[pos] : s.place === 'cell' ? (([d, p]) => DAYS[d] + ' ' + p)(String(pos).split('|')) : '';
+// In the platform's words: «الحصة 7: حد أقصى في الأسبوع 1».
+const stickText = (s, pos, x) => [stickWhere(s, pos), s.label + (x !== '' && x !== undefined && x !== null ? ' ' + x : '')].filter(Boolean).join(': ');
+const sameStick = (a, b) => a.lv === b.lv && (a.lv !== 'مرن موزون' || a.w === b.w) && a.dur === b.dur && String(a.x ?? '') === String(b.x ?? '');
 
 // The page of one target: its week grid, then (a role, department, subject or circumstance) its teachers, each with a grid of its own.
 function gridPage(tt, target, opts = {}) {
@@ -1087,6 +1158,62 @@ function gridPage(tt, target, opts = {}) {
     if (c.lv === 'إعفاء') continue;
     if (!o || Grid.rank(c) > Grid.rank(o)) inh.set(k, c);
   }
+  // Stickers: the target's own (by place), and (a teacher) those its layers give; an own sticker on an inherited place is an exception.
+  const stTT = tt;
+  const own0 = new Map();
+  for (const r of rows.filter(isSticker)) { const o = stickOf(r); if (o && o.s.for.includes(stTT)) own0.set(o.key, { ...o, row: r }); }
+  const own = new Map([...own0].map(([k, v]) => [k, { ...v }]));
+  const inhSt = new Map();
+  for (const r of inhRows.filter(isSticker)) { const o = stickOf(r); if (o && o.s.for.includes('معلّم') && o.lv !== 'إعفاء') inhSt.set(o.key, { ...o, src: targetLabel(r) }); }
+  const eff = key => { const o = own.get(key); return o ? (o.lv === 'إعفاء' ? null : o) : inhSt.get(key) || null; };
+  const stickersAt = (place, pos) => STICKERS.filter(x => x.place === place && x.for.includes(stTT) && (!x.at || x.at.includes(pos)));
+  const levelTxt = o => o.lv === 'صلب' ? 'صلب' : o.lv === 'مرن موزون' ? 'مرن ' + (o.w ?? '؟') : '';
+  // A pick equal to the inherited sticker is no exception: the teacher's own sticker goes.
+  const setStick = (key, st, pos, x, v) => {
+    const i = inhSt.get(key);
+    if (!v) return own.delete(key);
+    const n = { s: st, pos, x, lv: v.lv, w: v.lv === 'مرن موزون' ? v.w : null, dur: v.dur || 'ثابتة', key };
+    if (i && v.lv !== 'إعفاء' && sameStick(i, n)) own.delete(key); else own.set(key, n);
+  };
+  // The value a sticker needs: a number, a teacher (and a class), or a class.
+  function inputFor(st, cur) {
+    const sel = el('select', { className: 'sx' });
+    if (st.input.kind === 'num') sel.append(...st.input.opts.map(n => el('option', { value: n, textContent: n })));
+    else if (st.input.kind === 'class') sel.append(el('option', { value: '', textContent: 'الصف ▾' }), ...CLASSES.map(c => el('option', { value: c, textContent: c })));
+    else sel.append(el('option', { value: '', textContent: 'معلم ▾' }), ...depts().map(d => el('optgroup', { label: d },
+      ...TEACHERS.filter(x => x.department === d && nickT(x) !== target).map(x => el('option', { value: nickT(x), textContent: nickT(x) })))));
+    const cls = st.input.cls ? el('select', { className: 'sx' }, el('option', { value: '', textContent: 'كل الصفوف' }), ...CLASSES.map(c => el('option', { value: c, textContent: c }))) : null;
+    const m = st.input.cls && /^(.*?)\s*\((.*)\)$/.exec(cur || '');
+    sel.value = String(m ? m[1] : cur !== '' && cur !== undefined && cur !== null ? cur : st.input.def ?? '');
+    if (cls && m) cls.value = m[2];
+    return { el: el('span', { className: 'sxs' }, sel, cls), sels: [sel, cls].filter(Boolean),
+      get: () => sel.value === '' ? '' : sel.value + (cls && cls.value ? ' (' + cls.value + ')' : ''), focus: () => sel.focus() };
+  }
+  // The stickers of a place, in its menu: a tap on one that is off puts it on; on one that is on (or inherited), its binding.
+  function stickSection(place, pos) {
+    const defs = stickersAt(place, pos);
+    if (!defs.length) return null;
+    const name = { col: 'هذه الحصة', day: 'هذا اليوم', week: 'الأسبوع', cell: 'هذه الخانة' }[place];
+    return close => el('div', { className: 'st' }, el('div', { className: 'lb', textContent: 'ملصقات ' + name }), ...defs.map(st => {
+      const key = stickKey(st, pos), o = own.get(key), i = inhSt.get(key);
+      const on = o && o.lv !== 'إعفاء' ? o : null, shown = on || (!o && i) || null;
+      const inp = st.input ? inputFor(st, shown ? shown.x : '') : null;
+      const box = el('div', { className: 'tg' + (on ? ' on' : shown ? ' inh' : o ? ' exc' : '') });
+      const tail = o && o.lv === 'إعفاء' ? 'معفى ✎' : !o && i ? '🔒 ' + i.src : on ? [levelTxt(on), on.dur === 'مؤقتة' ? '⏳' : '', i ? '✎' : ''].filter(Boolean).join(' ') : '';
+      box.append(...[el('span', { className: 'lbx', textContent: (on ? '✓ ' : shown ? '🔒 ' : '○ ') + st.label }), inp ? inp.el : null, el('span', { className: 'tail', textContent: tail })].filter(Boolean));
+      if (inp) for (const sl of inp.sels) sl.onchange = () => { if (on) { on.x = inp.get(); draw(); } };
+      box.onclick = e => {
+        if (e.target.closest('select')) return;
+        const x = inp ? inp.get() : '';
+        if (inp && x === '') return inp.focus();
+        close();
+        if (!o && !i) { setStick(key, st, pos, x, { ...stickDefault(st), dur: 'ثابتة' }); return draw(); }
+        cellMenu({ title: stickText(st, pos, x) + (i ? ' — موروث من ' + i.src : ''), cur: o || null, inh: i ? { lv: i.lv, w: i.w } : null,
+          levels: stickLevels(st), nullLabel: 'حذف', onPick: v => { setStick(key, st, pos, x, v); draw(); } });
+      };
+      return box;
+    }));
+  }
   const note = el('textarea', { placeholder: 'ملاحظة (سبب القيد) — تُنسخ إلى كل قيد جديد، وتُعدَّل لكل قيد من «⋯» في القائمة', maxLength: 3000, rows: 2 });
   const grid = el('div'), pv = el('div', { className: 'pv plan' }), fmsg = el('span', { className: 'meta' });
   // A pick equal to the inherited binding is no exception: the teacher's own cell goes.
@@ -1095,40 +1222,61 @@ function gridPage(tt, target, opts = {}) {
     if (v && i && v.lv !== 'إعفاء' && Grid.same(v, { lv: i.lv, w: i.w, dur: v.dur }) && v.dur === 'ثابتة') v = null;
     if (v) cells.set(k, v); else cells.delete(k);
   };
-  const menu = (title, ks) => {
+  const menu = (title, ks, place, pos) => {
     const k0 = ks[0];
     const allInh = ks.every(k => inh.has(k));
-    cellMenu({ title: title + (allInh ? ' — موروث من ' + inh.get(k0).src : ''), cur: cells.get(k0), inh: allInh ? inh.get(k0) : null, onPick: v => { ks.forEach(k => set(k, v)); draw(); } });
+    cellMenu({ title: title + (allInh ? ' — موروث من ' + inh.get(k0).src : ''), cur: cells.get(k0), inh: allInh ? inh.get(k0) : null,
+      extra: place ? stickSection(place, pos) : null, onPick: v => { ks.forEach(k => set(k, v)); draw(); } });
   };
+  const badgeOf = (place, pos) => stickersAt(place, pos).map(st => { const o = eff(stickKey(st, pos)); return o ? st.badge(o.x) : ''; }).filter(Boolean).join(' · ');
   function drawGrid() {
-    const head = el('tr', {}, el('th', { className: 'd' }), ...Grid.PERIODS.map(p => {
+    // The corner «☰ الأسبوع (ن)»: the stickers of the whole week.
+    const weekDefs = stickersAt('week', 0);
+    const nWeek = weekDefs.filter(st => eff(stickKey(st, 0))).length;
+    const corner = weekDefs.length ? el('button', { type: 'button', className: 'corner', textContent: '☰ الأسبوع' + (nWeek ? ' (' + nWeek + ')' : '') }) : null;
+    if (corner) corner.onclick = () => cellMenu({ title: '☰ الأسبوع كله', levels: 'off', extra: stickSection('week', 0), onPick: () => {} });
+    const bd = t => t ? el('span', { className: 'bd', textContent: t }) : null;
+    const head = el('tr', {}, el('th', { className: 'd' }, corner), ...Grid.PERIODS.map(p => {
       const b = el('button', { type: 'button', textContent: p, title: 'الحصة ' + p + ' في كل الأيام' });
-      b.onclick = () => menu('الحصة ' + p + ' — كل الأيام', Grid.DAYS.map((_, d) => Grid.key(d, p)));
-      return el('th', {}, b);
+      b.onclick = () => menu('الحصة ' + p + ' — كل الأيام', Grid.DAYS.map((_, d) => Grid.key(d, p)), 'col', p);
+      return el('th', {}, b, bd(badgeOf('col', p)));
     }));
+    const absCol = p => STICKERS[0].for.includes(stTT) && eff(stickKey(STICKERS[0], p));
+    const absDay = d => { const st = STICKERS.find(x => x.id === 'absD'); return st.for.includes(stTT) && eff(stickKey(st, d)); };
+    const meetAt = k => { const st = STICKERS.find(x => x.id === 'meet'); return st.for.includes(stTT) && eff(stickKey(st, k)); };
     const body = Grid.DAYS.map((day, d) => {
       const db = el('button', { type: 'button', className: 'dayb', textContent: day, title: day + ' كله' });
-      db.onclick = () => menu(day + ' — كل الحصص', Grid.PERIODS.map(p => Grid.key(d, p)));
-      return el('tr', {}, el('th', { className: 'd' }, db), ...Grid.PERIODS.map(p => {
+      db.onclick = () => menu(day + ' — كل الحصص', Grid.PERIODS.map(p => Grid.key(d, p)), 'day', d);
+      return el('tr', {}, el('th', { className: 'd' }, db, bd(badgeOf('day', d))), ...Grid.PERIODS.map(p => {
         const k = Grid.key(d, p), c = cells.get(k), i = inh.get(k);
         const b = el('button', { type: 'button' });
         const show = c || i;
-        if (show) {
+        if (absCol(p) || absDay(d)) { b.className = 'abs'; b.textContent = 'غ'; b.title = 'غائب'; }
+        else if (meetAt(k)) { b.className = 'meet'; b.textContent = 'اجتماع'; }
+        else if (show) {
           b.className = c ? (c.lv === 'صلب' ? 'hard' : c.lv === 'إعفاء' ? 'free' : 'soft') : 'inh ' + (i.lv === 'صلب' ? 'ih' : 'is');
           b.textContent = show.lv === 'صلب' ? '✕' : show.lv === 'إعفاء' ? '—' : show.w ?? '؟';
           if (c && i) b.classList.add('exc');
           if (show.dur === 'مؤقتة') b.classList.add('tmp');
           b.title = [c && i ? 'استثناء من ' + i.src : i ? 'من ' + i.src : '', show.dur === 'مؤقتة' ? 'مؤقت' : ''].filter(Boolean).join(' · ');
         }
-        b.onclick = () => menu(day + ' — الحصة ' + p, [k]);
+        b.onclick = () => menu(day + ' — الحصة ' + p, [k], stickersAt('cell', k).length ? 'cell' : null, k);
         return el('td', {}, b);
       }));
     });
     grid.replaceChildren(el('table', { className: 'wk' }, head, ...body));
   }
   const fmt = r => phrase({ ...r, target_type: tt, target }).split(' — ').slice(1).join(' — ');
+  // The stickers that changed: the old row goes, the new one comes.
+  function stickPlan() {
+    const del = [], add = [];
+    for (const [k, o] of own0) { const n = own.get(k); if (!n || !sameStick(o, n)) del.push(o.row); }
+    for (const [k, n] of own) { const o = own0.get(k); if (!o || !sameStick(o, n)) add.push({ ctype: n.s.ctype, pattern: n.s.pattern || '', value: n.s.enc(n.pos, n.x), level: n.lv, weight: n.lv === 'مرن موزون' ? n.w : null, duration: n.dur }); }
+    return { del, add };
+  }
   function drawPlan() {
-    const p = Grid.plan(managed, cells);
+    const g = Grid.plan(managed, cells), sp = stickPlan();
+    const p = { del: [...g.del, ...sp.del], add: [...g.add, ...sp.add] };
     const lines = [...p.del.map(r => el('div', { className: 'del', textContent: '− ' + fmt(r) })), ...p.add.map(r => el('div', { className: 'add', textContent: '+ ' + fmt(r) }))];
     pv.replaceChildren(...[el('b', { textContent: lines.length ? 'بعد الحفظ:' : 'لا تغيير' }), ...lines]);
     pv.classList.toggle('hidden', !lines.length);
@@ -1142,7 +1290,7 @@ function gridPage(tt, target, opts = {}) {
     if (!p.add.length && !p.del.length) return (fmsg.textContent = 'لا تغيير');
     if (p.add.length && !note.value.trim()) { fmsg.textContent = 'الملاحظة (السبب) إلزامية'; return note.focus(); }
     const add = p.add.map(r => {
-      const f = { target_type: tt, target, ctype: r.ctype, pattern: '', value: r.value, level: r.level, weight: r.weight, active: true,
+      const f = { target_type: tt, target, ctype: r.ctype, pattern: r.pattern || '', value: r.value, level: r.level, weight: r.weight, active: true,
         duration: r.duration, reason: note.value.trim(), department: deptOf(tt, target), sheet_state: 'غير مسجّل', link_id: null };
       return { ...f, text: lineOf(f) };
     });
@@ -1175,7 +1323,8 @@ function gridPage(tt, target, opts = {}) {
   const legend = el('div', { className: 'legend' }, el('span', { textContent: 'صلب ✕', style: '--c:#f4c7c3' }), el('span', { textContent: 'مرن (الرقم = الوزن)', style: '--c:#cdebd8' }),
     el('span', { textContent: '⏳ مؤقت', style: '--c:#fff' }), t ? el('span', { textContent: 'موروث', style: '--c:#e9edf1' }) : null, t ? el('span', { textContent: '✎ استثناء', style: '--c:#fff' }) : null);
   // Other constraints of the target (from a request, before the grid): shown as they are.
-  const other = rows.filter(r => !Grid.managed(r));
+  const stickIds = new Set([...own0.values()].map(o => o.row.id));
+  const other = rows.filter(r => !Grid.managed(r) && !stickIds.has(r.id));
   page.append(...[...head, opts.embedded ? null : legend, grid,
     other.length ? el('div', { className: 'tsec' }, el('b', { textContent: 'قيود أخرى' }), ...other.map(r => miniRule(r))) : null,
     note, pv, el('div', { className: 'row' }, save, fmsg),
