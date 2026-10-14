@@ -23,7 +23,7 @@ function mock(calls) {
     calls.push(body);
     if (body.action === 'login') return { role: 'admin', teachers: T, phones: {} };
     // 2001: the teacher's row written as the sheet spells the name (no hamza), not as its nick.
-    if (body.action === 'rules') return { rows: [rule(2001, 'معلّم', 'احمد علي', 'لا حصّة', '1'), rule(2002, 'دور', 'رؤساء الأقسام', 'لا حصّة', '7')], types: [],
+    if (body.action === 'rules') return { rows: [rule(2001, 'معلّم', 'احمد علي', 'لا حصّة', '1'), rule(2002, 'دور', 'رؤساء الأقسام', 'لا حصّة', '7'), rule(2003, 'معلّم', 'خالد سالم', 'الحصص المسموحة', '1، 2')], types: [],
       groups: [{ name: 'رؤساء الأقسام', members: 'أحمد علي', note: '', kind: 'دور', parent: '' }] };
     if (body.action === 'teacher_save') { const t = T.find(x => x.name === body.old); if (t) Object.assign(t, { name: body.name, nick: body.nick }); }
     if (body.action === 'grid_save') return { ok: true, ids: (body.add || []).map((_, i) => 3000 + i) };
@@ -104,6 +104,19 @@ const CASES = {
     const v = await page.inputValue('.stx textarea');
     if (v !== 'نص لم يُحفظ') return 'the pull reloaded the list and lost the unsaved wording';
     if (calls.filter(c => c.action === 'rules').length !== n0) return 'the pull reloaded while a wording was unsaved';
+    return '';
+  },
+  // Editing a constraint from its details screen: back on the details, they show the edit (not the old text).
+  async detailAfterEdit(page, calls) {
+    await page.click('#rvList');
+    await page.click('.rule:has-text("الحصص المسموحة") .more');
+    await page.click('text=✏️ تعديل');
+    await page.click('.builder .chip.sq:text-is("3")');
+    await page.click('#fabSave');
+    await page.waitForTimeout(700);
+    if (!calls.some(c => c.action === 'rule_save' && c.id === 2003 && c.value === '1، 2، 3')) return 'rule_save was not sent with the new value';
+    const line = await page.textContent('.detailLine');
+    if (!line.includes('1، 2، 3')) return 'back on the details they still say «' + line + '»';
     return '';
   },
 };

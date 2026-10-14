@@ -532,7 +532,7 @@ const stateIcon = r => r.sheet_state && r.sheet_state !== 'غير مسجّل' ? 
 function ruleItem(r) {
   const box = el('div', { className: 'rule ' + ruleColor(r) + (r.checked ? ' done' : '') });
   const more = el('button', { type: 'button', className: 'more', textContent: '⋯', title: 'التفاصيل', ariaLabel: 'التفاصيل' });
-  more.onclick = () => openScreen('تفاصيل القيد', ruleDetail(r));
+  more.onclick = () => openScreen('تفاصيل القيد', ruleDetail(r), () => ruleDetail(r));
   box.append(el('div', { className: 'top' },
     el('span', { className: 'box', textContent: r.checked ? '✓' : '' }),
     el('div', { className: 'tx' }, phrase(r)),
@@ -1508,7 +1508,7 @@ function teacherForm(t, dept) {
 // A constraint line on a page: its words and binding; «⋯» opens its details (not ticked off here).
 function miniRule(r) {
   const more = el('button', { type: 'button', className: 'more', textContent: '⋯', title: 'التفاصيل' });
-  more.onclick = () => openScreen('تفاصيل القيد', ruleDetail(r));
+  more.onclick = () => openScreen('تفاصيل القيد', ruleDetail(r), () => ruleDetail(r));
   const box = el('div', { className: 'rule ' + ruleColor(r), style: 'cursor:default' });
   const redraw = () => box.querySelector('.appr').replaceWith(approveBtn(r, redraw));
   box.append(el('div', { className: 'top' }, el('span', { className: 'tx' }, phrase(r)),
