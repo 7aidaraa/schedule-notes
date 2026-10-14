@@ -2,7 +2,7 @@
 // Checks of the Edge Function (supabase/functions/api/index.ts) without Deno, the network or the database:
 // `node tools/api_test.js` (exit 1 = a check failed, 2 = typescript not found).
 // 1. it still parses; 2. the password checks are constant-time; 3. a teacher reaches only `login` and `submit`;
-// 4. nothing but POST is served (the old `?feed=` stays out).
+// 4. nothing but POST is served (the old `?feed=` stays out); 5. CORS allows only the platform's own origin.
 const fs = require('fs');
 const path = require('path');
 let ts;
@@ -41,6 +41,17 @@ check(src.indexOf('const role = await roleOf(') < src.indexOf('const action = bo
 check(/if \(req\.method !== "POST"\) return fail\(/.test(src) && src.indexOf('req.method !== "POST"') < src.indexOf('roleOf(body.pass)'), 'a method other than POST may reach the actions');
 check(!/feed/i.test(src.replace(/\/\/.*$/gm, '')), 'a feed endpoint is in index.ts: it stays disabled unless the principal asks (CLAUDE.md)');
 check(!/searchParams|new URL\(req\.url/.test(src), 'index.ts reads the query string (a GET-style entry point)');
+
+// 5. CORS: only https://teacher-requests.onrender.com, never "*"; the preflight still answers with the CORS headers
+const cors = /const CORS = \{[\s\S]*?\n\};/.exec(src);
+check(!!cors, 'the CORS headers object is gone');
+if (cors) {
+  const origins = [...cors[0].matchAll(/"Access-Control-Allow-Origin":\s*"([^"]*)"/g)].map(m => m[1]);
+  check(origins.length === 1 && origins[0] === 'https://teacher-requests.onrender.com', 'Access-Control-Allow-Origin is ' + JSON.stringify(origins) + ' (only https://teacher-requests.onrender.com)');
+  check(/"Access-Control-Allow-Methods":\s*"[^"]*OPTIONS/.test(cors[0]), 'OPTIONS is no longer an allowed method');
+}
+check(!/Access-Control-Allow-Origin["']?\s*[:,]\s*["']\*/.test(src), 'a wildcard Access-Control-Allow-Origin is in index.ts');
+check(/if \(req\.method === "OPTIONS"\) return new Response\([^)]*\{ headers: CORS \}\)/.test(src) && src.indexOf('req.method === "OPTIONS"') < src.indexOf('req.method !== "POST"'), 'the OPTIONS preflight no longer answers with CORS before the POST-only check');
 
 console.log(fails.length ? fails.map(f => 'FAIL ' + f).join('\n') : 'api_test: all pass');
 process.exit(fails.length ? 1 : 0);

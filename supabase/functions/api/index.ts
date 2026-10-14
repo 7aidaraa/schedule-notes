@@ -4,7 +4,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 const BUCKET = "attachments"; // files of old requests only: teachers no longer attach anything
 const CORS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://teacher-requests.onrender.com", // the only page that calls the API (CLAUDE.md); not "*"
   "Access-Control-Allow-Headers": "content-type, authorization, apikey, x-client-info",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
