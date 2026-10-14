@@ -193,6 +193,7 @@ function replaceScreen(title, body, build) {
   showTop();
 }
 function closeScreen() { if (screenOpen()) history.back(); }
+const reopenAs = (tt, target) => { addEventListener('popstate', () => setTimeout(() => openTarget(tt, target)), { once: true }); history.go(-2); }; // renamed from its own page: back two steps, then its page under the new name
 addEventListener('popstate', e => {
   const depth = (e.state && e.state.screen) || 0;
   if (STACK.length <= depth) return;
@@ -1088,7 +1089,7 @@ function groupForm(g, kind) {
         GROUPS.forEach(x => { if (x.parent === g.name) x.parent = f.name; });
         Object.assign(g, row);
       } else GROUPS.push(row);
-      toast('حُفظ ✓'); closeScreen();
+      toast('حُفظ ✓'); if (g && STACK.length > 1 && f.name !== f.old) reopenAs(kind, f.name); else closeScreen();
     } catch (e) { fmsg.textContent = e; save.disabled = false; }
   };
   const del = g ? delButton('حذف ' + word, async () => { await call('group_delete', { name: g.name }); GROUPS = GROUPS.filter(x => x !== g); toast('حُذف ✓'); history.go(-2); }) : null;
@@ -1489,8 +1490,7 @@ function teacherForm(t, dept) {
         GROUPS.forEach(g => { g.members = membersOf(g.name).map(m => sameName(m, oldNick) ? newNick : m).join('،'); });
       }
       toast('حُفظ ✓');
-      // A renamed teacher's page is the page of its new name.
-      if (t && STACK.length > 1 && oldNick !== newNick) { addEventListener('popstate', () => setTimeout(() => openTarget('معلّم', newNick)), { once: true }); history.go(-2); } else closeScreen();
+      if (t && STACK.length > 1 && oldNick !== newNick) reopenAs('معلّم', newNick); else closeScreen();
     } catch (e) { fmsg.textContent = e; toast(e, true); save.disabled = false; }
   };
   const del = t ? delButton('حذف المعلم', async () => {

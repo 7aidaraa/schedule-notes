@@ -5,6 +5,7 @@
 2. Deleted stays deleted: each entry says what was removed and why, so a copy from an old
    branch is caught.
 3. The front end still parses (node --check), when node is available.
+4. Browser regressions (tools/ui_regress.js, mocked API), when playwright is available.
 """
 import os, re, shutil, subprocess, sys
 
@@ -40,6 +41,16 @@ if shutil.which('node'):
         r = subprocess.run(['node', '--check', os.path.join(ROOT, js)], capture_output=True, text=True)
         if r.returncode:
             fails.append(js + ' does not parse: ' + r.stderr.strip()[:300])
+
+# 4. Browser regressions of the 2026-10-14 review (skipped without playwright: exit 2)
+if shutil.which('node'):
+    env = dict(os.environ)
+    env.setdefault('NODE_PATH', '/opt/node-tools/node_modules')
+    r = subprocess.run(['node', os.path.join(ROOT, 'tools', 'ui_regress.js')], capture_output=True, text=True, env=env, timeout=600)
+    out = '\n'.join(l for l in r.stdout.splitlines() if l.startswith(('ok', 'FAIL', 'ui_regress')))
+    print(out)
+    if r.returncode == 1:
+        fails.append('browser regressions failed (tools/ui_regress.js, see above)')
 
 if fails:
     print('\n'.join(fails))
