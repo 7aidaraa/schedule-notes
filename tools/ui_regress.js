@@ -83,6 +83,29 @@ const CASES = {
     if (!saves.some(c => (c.del || []).includes(2001))) return 'row 2001 was not deleted';
     return '';
   },
+  // Pulling down to refresh in «القائمة» must not throw away sheet wording typed and not saved yet.
+  async pullKeepsDraft(page, calls) {
+    const pull = async () => {
+      await page.evaluate(() => {
+        scrollTo(0, 0);
+        const t = (type, y) => { const touch = new Touch({ identifier: 1, target: document.body, clientX: 100, clientY: y });
+          dispatchEvent(new TouchEvent(type, { touches: type === 'touchend' ? [] : [touch], changedTouches: [touch], bubbles: true })); };
+        t('touchstart', 100); t('touchmove', 300); t('touchend', 300);
+      });
+      await page.waitForTimeout(500);
+    };
+    await page.click('#rvList');
+    let n0 = calls.filter(c => c.action === 'rules').length;
+    await pull();
+    if (calls.filter(c => c.action === 'rules').length !== n0 + 1) return 'with nothing unsaved, the pull did not reload';
+    await page.fill('.stx textarea', 'نص لم يُحفظ');
+    n0 = calls.filter(c => c.action === 'rules').length;
+    await pull();
+    const v = await page.inputValue('.stx textarea');
+    if (v !== 'نص لم يُحفظ') return 'the pull reloaded the list and lost the unsaved wording';
+    if (calls.filter(c => c.action === 'rules').length !== n0) return 'the pull reloaded while a wording was unsaved';
+    return '';
+  },
 };
 
 (async () => {

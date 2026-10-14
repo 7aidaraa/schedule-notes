@@ -279,7 +279,7 @@ const HELP = `كيف أستعمل المنصة؟
     if (y0 === null) return;
     y0 = null;
     if (dy > 130) {
-      if (screenOpen()) { ptr.style.height = '0'; return; }
+      if (screenOpen() || (fabHost() || { _can: () => false })._can()) { ptr.style.height = '0'; return; } // an open form, or unsaved text (✓ lit)
       ptr.style.height = '40px'; ptr.textContent = 'جارٍ التحديث...';
       await refresh();
     }
