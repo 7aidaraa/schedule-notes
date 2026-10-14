@@ -7,6 +7,8 @@
 3. The front end still parses (node --check), when node is available.
 4. Characterization tests of web/grid.js (tools/grid_test.js).
 5. Browser regressions (tools/ui_regress.js, mocked API), when playwright is available.
+6. The Edge Function (tools/api_test.js): parses, constant-time passwords, teacher only reaches
+   login/submit, POST only (no feed).
 """
 import os, re, shutil, subprocess, sys
 
@@ -59,6 +61,13 @@ if shutil.which('node'):
     print(out)
     if r.returncode == 1:
         fails.append('browser regressions failed (tools/ui_regress.js, see above)')
+
+# 6. Edge Function checks (skipped without typescript: exit 2)
+if shutil.which('node'):
+    r = subprocess.run(['node', os.path.join(ROOT, 'tools', 'api_test.js')], capture_output=True, text=True)
+    print(r.stdout.strip())
+    if r.returncode == 1:
+        fails.append('tools/api_test.js failed (see above)')
 
 if fails:
     print('\n'.join(fails))

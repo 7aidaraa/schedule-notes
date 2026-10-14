@@ -21,14 +21,23 @@ async function sha256(s: string) {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+// Constant-time comparison: how long it takes does not tell how much of a guess was right.
+function sameText(a: string, b: unknown) {
+  if (typeof b !== "string" || !b) return false;
+  const x = new TextEncoder().encode(a), y = new TextEncoder().encode(b);
+  let d = x.length ^ y.length;
+  for (let i = 0; i < Math.max(x.length, y.length); i++) d |= (x[i] ?? 0) ^ (y[i] ?? 0);
+  return d === 0;
+}
+
 // Two passwords: the developer (admin) and the teachers.
 async function roleOf(pass: string): Promise<"admin" | "teacher" | null> {
   const { data } = await db.from("settings").select("key,value");
   const s = Object.fromEntries((data ?? []).map((r) => [r.key, r.value]));
   pass = str(pass, 200);
   if (!pass) return null;
-  if (await sha256(pass) === s.admin_pass_sha256) return "admin";
-  if (pass === s.teacher_pass) return "teacher";
+  if (sameText(await sha256(pass), s.admin_pass_sha256)) return "admin";
+  if (sameText(pass, s.teacher_pass)) return "teacher";
   return null;
 }
 
@@ -79,7 +88,8 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { return fail("طلب غير صالح"); }
 
   const role = await roleOf(body.pass);
-  if (!role) return fail("كلمة السر غير صحيحة", 401);
+  // A wrong password waits half a second: guessing one after another gets slow.
+  if (!role) { await new Promise((r) => setTimeout(r, 500)); return fail("كلمة السر غير صحيحة", 401); }
   const action = body.action;
 
   if (action === "login") {
