@@ -609,11 +609,6 @@ function ruleDetail(r) {
 // The constraint as a row of the sheet «القيود» (section three).
 const SHEET_COLS = ['نوع الهدف', 'الهدف', 'نوع القيد', 'النمط', 'القيمة', 'مستوى الإلزام', 'الوزن', 'مفعَّل', 'ملاحظة'];
 const rowOf = r => [r.target_type, r.target, r.ctype, r.pattern, r.value, r.level, r.weight ?? '', r.active === false ? 'لا' : 'نعم', r.reason];
-function sheetRow(r) {
-  if (r.target_type === 'بارامتر') return el('div', {}, 'بارامتر في القسم الأول/الثاني من ورقة «القيود»: ', el('b', { textContent: r.target }), r.value ? ' = ' + r.value : '');
-  const v = rowOf(r);
-  return el('table', { className: 'sr' }, ...SHEET_COLS.map((h, i) => el('tr', {}, el('th', { textContent: 'ABCDEFGHI'[i] + ' · ' + h }), el('td', { textContent: v[i] === '' ? '—' : v[i] }))));
-}
 $('ruleAdd').onclick = () => openScreen('إضافة قيد', builder({}));
 // Two taps (no confirm(): in-app browsers block it).
 let resetArmed = 0;

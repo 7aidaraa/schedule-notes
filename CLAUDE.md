@@ -7,6 +7,7 @@
 - **والإذن الصريح كلمة «هاب» وحدها** (دستور الحساب v1.2): إذن كل عملية في GitHub — دفع، طلب دمج، دمج، تشغيل Actions. الثناء («تمام»، «أحسنت») ليس إذناً.
 - أصغر تغيير يكفي. اختبر بالمتصفح (Playwright بخادم وهمي) وراجع الصور قبل طلب الإذن.
 - لا تكتب كلمات السر في أي ملف أو commit.
+- قبل كل دفع: `python3 tools/guards.py` (يفشل إن كبر ملف أو عاد محذوف). الكود الجديد في ملف جديد لا في آخر ملف قائم؛ الملف باب واحد. بعد تقسيم ملف: `python3 tools/size_guard.py --update`.
 
 ## قرارات ثابتة
 - **منصة شخصية**: لا شعار مدرسة، ولا اسم مدرسة، ولا اسم صاحب المنصة في أي مكان (رفض المدير الطابع الرسمي).
@@ -42,7 +43,7 @@
 | الواجهة (موقع ثابت) | `web/index.html` + `web/grid.js` (الشبكة ⇄ صفوف الشيت، بلا DOM) + `web/app.js` + `web/assets/` (خط Plex Arabic، أيقونة تقويم) |
 | الخادم | `supabase/functions/api/index.ts` (Edge Function واحدة، `verify_jwt=false`، التحقق بكلمتي السر) |
 | مستورد الشيت | `tools/import_from_platform.gs` (يلصقه صاحب الشيت في ملفه) |
-| قديم غير مستعمل | `Code.gs` و`Index.html` (نسخة Apps Script الأولى) |
+| الحراس | `tools/guards.py` (حارس الحجم `tools/size_guard.py` + «لا يعود المحذوف» + فحص صياغة JS) |
 
 ### Supabase (project id: `zywdedrtcaolsosufoae`)
 - `requests`: id, created_at, name, department, role (دائماً teacher الآن), phone, request, reason, done/note (قديمان بلا استعمال), files (مرفقات الطلبات القديمة فقط), by_admin — `file_path, file_name, file_type` أقدم.
