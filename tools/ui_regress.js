@@ -68,6 +68,21 @@ const CASES = {
     if (!title.includes('خالد السالم')) return 'after the rename the page is «' + title + '»';
     return '';
   },
+  // A teacher's row whose target is spelled differently from the nick (hamza, spaces): the server deletes a row only
+  // when its target equals the one sent, so each spelling must be sent as its own target.
+  async gridVariantTarget(page, calls) {
+    await page.evaluate(() => openTarget('معلّم', 'أحمد علي'));
+    await page.click('.wk tr:nth-child(2) td:nth-child(2) button');
+    await page.click('.sheetMenu .opt.free');
+    await page.click('#fabSave');
+    await page.waitForTimeout(700);
+    const saves = calls.filter(c => c.action === 'grid_save');
+    if (!saves.length) return 'grid_save was not sent';
+    const bad = saves.filter(c => (c.del || []).includes(2001) && c.target !== 'احمد علي');
+    if (bad.length) return 'row 2001 (target «احمد علي») was sent for deletion under target «' + bad[0].target + '»: the server would keep it';
+    if (!saves.some(c => (c.del || []).includes(2001))) return 'row 2001 was not deleted';
+    return '';
+  },
 };
 
 (async () => {

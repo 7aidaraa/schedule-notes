@@ -88,6 +88,13 @@ const Grid = (() => {
     const rest = new Map([...next].filter(([k, c]) => !same(given.get(k), c)));
     return { keep, del, add: generate(rest) };
   }
-  return { DAYS, PERIODS, MANAGED, key, cellsOf, cellOf, managed, fromRows, generate, plan, same, rank };
+  // Rows to delete whose target is spelled otherwise than `target` (a teacher's rows match its nick loosely):
+  // [[spelling, ids]], each sent under its own spelling, as the server deletes only the rows of the exact target.
+  function otherTargets(rows, target) {
+    const m = new Map();
+    for (const r of rows) if (r.target !== target) m.set(r.target, [...(m.get(r.target) || []), r.id]);
+    return [...m];
+  }
+  return { DAYS, PERIODS, MANAGED, key, cellsOf, cellOf, managed, fromRows, generate, plan, otherTargets, same, rank };
 })();
 if (typeof module !== 'undefined') module.exports = Grid;

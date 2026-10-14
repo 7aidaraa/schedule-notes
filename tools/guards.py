@@ -5,7 +5,8 @@
 2. Deleted stays deleted: each entry says what was removed and why, so a copy from an old
    branch is caught.
 3. The front end still parses (node --check), when node is available.
-4. Browser regressions (tools/ui_regress.js, mocked API), when playwright is available.
+4. Characterization tests of web/grid.js (tools/grid_test.js).
+5. Browser regressions (tools/ui_regress.js, mocked API), when playwright is available.
 """
 import os, re, shutil, subprocess, sys
 
@@ -42,7 +43,14 @@ if shutil.which('node'):
         if r.returncode:
             fails.append(js + ' does not parse: ' + r.stderr.strip()[:300])
 
-# 4. Browser regressions of the 2026-10-14 review (skipped without playwright: exit 2)
+# 4. grid.js characterization
+if shutil.which('node'):
+    r = subprocess.run(['node', os.path.join(ROOT, 'tools', 'grid_test.js')], capture_output=True, text=True)
+    print(r.stdout.strip())
+    if r.returncode:
+        fails.append('tools/grid_test.js failed (see above)')
+
+# 5. Browser regressions of the 2026-10-14 review (skipped without playwright: exit 2)
 if shutil.which('node'):
     env = dict(os.environ)
     env.setdefault('NODE_PATH', '/opt/node-tools/node_modules')

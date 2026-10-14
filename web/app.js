@@ -462,7 +462,6 @@ const levelOf = (st, t) => t.lv === 'choose' || t.lv === 'choose-nw' ? st.level 
 const deptOf = (tt, target) => tt === 'معلّم' ? (teacherOf(target) || {}).department || '' : tt === 'مادّة' ? (SUBJECTS.find(x => x.s === target) || {}).d || '' : tt === 'قسم' ? target : ALL;
 // A circumstance takes the teacher's types (its rows go to the sheet as one «معلّم» row per member).
 const ttFor = tt => tt === 'ظرف' ? 'معلّم' : tt;
-const durOf = () => 'ثابتة';
 const lineOf = r => r.ctype + ': ' + r.target + (r.value ? ' — ' + (r.pattern ? r.pattern + ' · ' : '') + r.value : '');
 
 let RULES = null, DUR = 'ثابتة', GROUPS = [], RVIEW = 'cover';
@@ -636,7 +635,7 @@ function builder({ rule, request, link, onSaved, fixed, onCancel }) {
     target: r.target ?? (fixed ? fixed.target : reqTeacher ? reqTeacher.nick || reqTeacher.name : ''),
     ctype: r.ctype || (fixed ? fixed.ctype : ''), per: parsePer(r.ctype === 'خانات محجوبة' ? (r.value || '').split(':')[1] : r.value), days: parseDays(r.ctype === 'خانات محجوبة' ? (r.value || '').split(':')[0] : r.value),
     num: /^\d+$/.test(digits(r.value || '')) ? digits(r.value) : '', other: r.ctype === 'ربط السابعات' ? r.value : '', free: r.value || '',
-    level: r.level || 'صلب', weight: r.weight ?? '', active: r.active !== false, duration: r.duration || (fixed ? durOf(fixed.tt) : link ? link.duration : DUR),
+    level: r.level || 'صلب', weight: r.weight ?? '', active: r.active !== false, duration: r.duration || (fixed ? 'ثابتة' : link ? link.duration : DUR),
     reason: r.reason ?? (request ? request.reason : link ? link.reason : ''),
   };
   const box = el('div', { className: 'builder' });
@@ -1379,7 +1378,8 @@ function gridPage(tt, target, opts = {}) {
     try {
       if (cls && cls._changed()) await cls._commit();
       if (p.add.length || p.del.length) {
-        const o = await call('grid_save', { target_type: tt, target, del: p.del.map(r => r.id), add });
+        for (const [v, ids] of Grid.otherTargets(p.del, target)) await call('grid_save', { target_type: tt, target: v, del: ids, add: [] });
+        const o = await call('grid_save', { target_type: tt, target, del: p.del.filter(r => r.target === target).map(r => r.id), add });
         const gone = new Set(p.del.map(r => r.id));
         RULES = RULES.filter(r => !gone.has(r.id)).concat(add.map((f, i) => ({ id: o.ids[i], created_at: new Date().toISOString(), request_id: null, checked: false, approved: false, sheet_text: '', ...f })));
       }
