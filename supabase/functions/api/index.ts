@@ -302,6 +302,19 @@ Deno.serve(async (req) => {
     const { error } = await (body.old ? q.eq("target_type", "") : q.neq("target_type", ""));
     return error ? fail("تعذر رفع الشطب", 500) : json({ ok: true });
   }
+  // ---- «مهام سريعة» (spec 2026-10-15): read and tick only; the items come from a seed ----
+  if (action === "tasks") {
+    const { data, error } = await db.from("quick_tasks").select("id,sec,pos,title,body,done").order("sec").order("pos");
+    return error ? fail("تعذر جلب المهام", 500) : json({ rows: data });
+  }
+  if (action === "task_check") {
+    const { error } = await db.from("quick_tasks").update({ done: !!body.done }).eq("id", Number(body.id));
+    return error ? fail("تعذر التحديث", 500) : json({ ok: true });
+  }
+  if (action === "tasks_reset") {
+    const { error } = await db.from("quick_tasks").update({ done: false }).eq("done", true);
+    return error ? fail("تعذر رفع الشطب", 500) : json({ ok: true });
+  }
   // ---- «المنصة القديمة»: the constraints as one long list of free text (before the sheet terms), until the merge ----
   if (action === "old_rules") {
     const { data, error } = await db.from("constraints").select("id,created_at,section,pos,teacher,department,text,level,reason,checked")

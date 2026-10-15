@@ -158,6 +158,11 @@
   .oldRule.done .tx > div:first-child { text-decoration:line-through; color:var(--mute); }
   .oldRule .box { flex:none; width:22px; height:22px; margin-top:2px; border:2px solid var(--sky); border-radius:7px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:14px; background:#fff; }
   .oldRule.done .box { background:var(--ok); border-color:var(--ok); }
+  .task .row6 { margin-top:4px; padding:5px 8px; background:#fff; border:1px solid var(--line); border-radius:9px; font-size:14px; font-weight:700; color:var(--navy); overflow-wrap:anywhere; }
+  .task .note { margin-top:3px; font-size:13px; color:var(--mute); }
+  .oldRule.task.done .row6, .oldRule.task.done .note { opacity:.55; }
+  .tasksHead { font-size:17px; color:var(--navy); margin:16px 0 8px; }
+  .howto { background:#f6f9fb; border-radius:12px; padding:6px 10px; margin-bottom:8px; } .howto ol { margin:6px 0; padding-inline-start:22px; } .howto li { margin:3px 0; }
   .lost { display:inline-block; font-size:12px; font-weight:700; color:#7a5300; background:var(--gold-soft); border-radius:8px; padding:1px 8px; }
   button.appr { flex:none; padding:1px 8px; font-size:12px; font-weight:700; border-radius:99px; background:#fff; color:var(--mute); border:1.5px dashed var(--line); box-shadow:none; white-space:nowrap; }
   button.appr.on { background:#1f4e79; border:1.5px solid #1f4e79; color:#fff; }
@@ -296,7 +301,7 @@
   </section>
 
   <section id="admin" class="hidden">
-    <div class="tabs"><button id="tabRules" class="ghost on">القيود</button><button id="tabReq" class="ghost">الطلبات</button><button id="tabBook" class="ghost">الهواتف</button><button id="tabOld" class="ghost">المنصة القديمة</button></div>
+    <div class="tabs"><button id="tabRules" class="ghost on">القيود</button><button id="tabReq" class="ghost">الطلبات</button><button id="tabBook" class="ghost">الهواتف</button><button id="tabOld" class="ghost">المنصة القديمة</button><button id="tabTasks" class="ghost">مهام سريعة</button></div>
 
     <div id="rules">
       <div class="tabs sub"><button id="rvCover" class="ghost on">التغطية</button><button id="rvList" class="ghost">القائمة</button></div>
@@ -329,6 +334,9 @@
       <div class="tabs sub"><button id="ovRules" class="ghost on">القيود</button><button id="ovReq" class="ghost">الطلبات</button></div>
       <div id="oldBody"></div>
     </div>
+
+    <!-- «مهام سريعة» (spec 2026-10-15): what is left before exporting the timetable; read and tick only. -->
+    <div id="tasksView" class="hidden"><div id="tasksBody"></div></div>
   </section>
 
   <!-- Whatever opens gets the whole page, with a way back (the phone's back button too). -->
