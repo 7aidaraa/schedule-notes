@@ -195,6 +195,7 @@ function replaceScreen(title, body, build) {
   showTop();
 }
 function closeScreen() { if (screenOpen()) history.back(); }
+const reopenAs = (tt, target) => { addEventListener('popstate', () => setTimeout(() => openTarget(tt, target)), { once: true }); history.go(-2); }; // renamed from its own page: back two steps, then its page under the new name
 addEventListener('popstate', e => {
   const depth = (e.state && e.state.screen) || 0;
   if (STACK.length <= depth) return;
@@ -280,7 +281,7 @@ const HELP = `كيف أستعمل المنصة؟
     if (y0 === null) return;
     y0 = null;
     if (dy > 130) {
-      if (screenOpen()) { ptr.style.height = '0'; return; }
+      if (screenOpen() || (fabHost() || { _can: () => false })._can()) { ptr.style.height = '0'; return; } // an open form, or unsaved text (✓ lit)
       ptr.style.height = '40px'; ptr.textContent = 'جارٍ التحديث...';
       await refresh();
     }
@@ -463,7 +464,6 @@ const levelOf = (st, t) => t.lv === 'choose' || t.lv === 'choose-nw' ? st.level 
 const deptOf = (tt, target) => tt === 'معلّم' ? (teacherOf(target) || {}).department || '' : tt === 'مادّة' ? (SUBJECTS.find(x => x.s === target) || {}).d || '' : tt === 'قسم' ? target : ALL;
 // A circumstance takes the teacher's types (its rows go to the sheet as one «معلّم» row per member).
 const ttFor = tt => tt === 'ظرف' ? 'معلّم' : tt;
-const durOf = () => 'ثابتة';
 const lineOf = r => r.ctype + ': ' + r.target + (r.value ? ' — ' + (r.pattern ? r.pattern + ' · ' : '') + r.value : '');
 
 let RULES = null, DUR = 'ثابتة', GROUPS = [], RVIEW = 'cover';
@@ -534,7 +534,7 @@ const stateIcon = r => r.sheet_state && r.sheet_state !== 'غير مسجّل' ? 
 function ruleItem(r) {
   const box = el('div', { className: 'rule ' + ruleColor(r) + (r.checked ? ' done' : '') });
   const more = el('button', { type: 'button', className: 'more', textContent: '⋯', title: 'التفاصيل', ariaLabel: 'التفاصيل' });
-  more.onclick = () => openScreen('تفاصيل القيد', ruleDetail(r));
+  more.onclick = () => openScreen('تفاصيل القيد', ruleDetail(r), () => ruleDetail(r));
   box.append(el('div', { className: 'top' },
     el('span', { className: 'box', textContent: r.checked ? '✓' : '' }),
     el('div', { className: 'tx' }, phrase(r)),
@@ -611,11 +611,6 @@ function ruleDetail(r) {
 // The constraint as a row of the sheet «القيود» (section three).
 const SHEET_COLS = ['نوع الهدف', 'الهدف', 'نوع القيد', 'النمط', 'القيمة', 'مستوى الإلزام', 'الوزن', 'مفعَّل', 'ملاحظة'];
 const rowOf = r => [r.target_type, r.target, r.ctype, r.pattern, r.value, r.level, r.weight ?? '', r.active === false ? 'لا' : 'نعم', r.reason];
-function sheetRow(r) {
-  if (r.target_type === 'بارامتر') return el('div', {}, 'بارامتر في القسم الأول/الثاني من ورقة «القيود»: ', el('b', { textContent: r.target }), r.value ? ' = ' + r.value : '');
-  const v = rowOf(r);
-  return el('table', { className: 'sr' }, ...SHEET_COLS.map((h, i) => el('tr', {}, el('th', { textContent: 'ABCDEFGHI'[i] + ' · ' + h }), el('td', { textContent: v[i] === '' ? '—' : v[i] }))));
-}
 $('ruleAdd').onclick = () => openScreen('إضافة قيد', builder({}));
 // Two taps (no confirm(): in-app browsers block it).
 let resetArmed = 0;
@@ -642,7 +637,7 @@ function builder({ rule, request, link, onSaved, fixed, onCancel }) {
     target: r.target ?? (fixed ? fixed.target : reqTeacher ? reqTeacher.nick || reqTeacher.name : ''),
     ctype: r.ctype || (fixed ? fixed.ctype : ''), per: parsePer(r.ctype === 'خانات محجوبة' ? (r.value || '').split(':')[1] : r.value), days: parseDays(r.ctype === 'خانات محجوبة' ? (r.value || '').split(':')[0] : r.value),
     num: /^\d+$/.test(digits(r.value || '')) ? digits(r.value) : '', other: r.ctype === 'ربط السابعات' ? r.value : '', free: r.value || '',
-    level: r.level || 'صلب', weight: r.weight ?? '', active: r.active !== false, duration: r.duration || (fixed ? durOf(fixed.tt) : link ? link.duration : DUR),
+    level: r.level || 'صلب', weight: r.weight ?? '', active: r.active !== false, duration: r.duration || (fixed ? 'ثابتة' : link ? link.duration : DUR),
     reason: r.reason ?? (request ? request.reason : link ? link.reason : ''),
   };
   const box = el('div', { className: 'builder' });
@@ -1095,7 +1090,7 @@ function groupForm(g, kind) {
         GROUPS.forEach(x => { if (x.parent === g.name) x.parent = f.name; });
         Object.assign(g, row);
       } else GROUPS.push(row);
-      toast('حُفظ ✓'); closeScreen();
+      toast('حُفظ ✓'); if (g && STACK.length > 1 && f.name !== f.old) reopenAs(kind, f.name); else closeScreen();
     } catch (e) { fmsg.textContent = e; save.disabled = false; }
   };
   const del = g ? delButton('حذف ' + word, async () => { await call('group_delete', { name: g.name }); GROUPS = GROUPS.filter(x => x !== g); toast('حُذف ✓'); history.go(-2); }) : null;
@@ -1385,7 +1380,8 @@ function gridPage(tt, target, opts = {}) {
     try {
       if (cls && cls._changed()) await cls._commit();
       if (p.add.length || p.del.length) {
-        const o = await call('grid_save', { target_type: tt, target, del: p.del.map(r => r.id), add });
+        for (const [v, ids] of Grid.otherTargets(p.del, target)) await call('grid_save', { target_type: tt, target: v, del: ids, add: [] });
+        const o = await call('grid_save', { target_type: tt, target, del: p.del.filter(r => r.target === target).map(r => r.id), add });
         const gone = new Set(p.del.map(r => r.id));
         RULES = RULES.filter(r => !gone.has(r.id)).concat(add.map((f, i) => ({ id: o.ids[i], created_at: new Date().toISOString(), request_id: null, checked: false, approved: false, sheet_text: '', ...f })));
       }
@@ -1496,8 +1492,7 @@ function teacherForm(t, dept) {
         GROUPS.forEach(g => { g.members = membersOf(g.name).map(m => sameName(m, oldNick) ? newNick : m).join('،'); });
       }
       toast('حُفظ ✓');
-      // A renamed teacher's page is the page of its new name.
-      if (t && STACK.length > 1 && oldNick !== newNick) { addEventListener('popstate', () => setTimeout(() => openTarget('معلّم', newNick)), { once: true }); history.go(-2); } else closeScreen();
+      if (t && STACK.length > 1 && oldNick !== newNick) reopenAs('معلّم', newNick); else closeScreen();
     } catch (e) { fmsg.textContent = e; toast(e, true); save.disabled = false; }
   };
   const del = t ? delButton('حذف المعلم', async () => {
@@ -1515,7 +1510,7 @@ function teacherForm(t, dept) {
 // A constraint line on a page: its words and binding; «⋯» opens its details (not ticked off here).
 function miniRule(r) {
   const more = el('button', { type: 'button', className: 'more', textContent: '⋯', title: 'التفاصيل' });
-  more.onclick = () => openScreen('تفاصيل القيد', ruleDetail(r));
+  more.onclick = () => openScreen('تفاصيل القيد', ruleDetail(r), () => ruleDetail(r));
   const box = el('div', { className: 'rule ' + ruleColor(r), style: 'cursor:default' });
   const redraw = () => box.querySelector('.appr').replaceWith(approveBtn(r, redraw));
   box.append(el('div', { className: 'top' }, el('span', { className: 'tx' }, phrase(r)),
