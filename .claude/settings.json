@@ -1,0 +1,27 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ \"$CLAUDE_CODE_REMOTE\" = \"true\" ] && curl -s -m 15 \"https://api.callmebot.com/text.php?user=@Haidaraa313&text=Claude+Code+finished\" > /dev/null; exit 0",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "permission_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ \"$CLAUDE_CODE_REMOTE\" = \"true\" ] && curl -s -m 15 \"https://api.callmebot.com/text.php?user=@Haidaraa313&text=Claude+Code+needs+your+approval\" > /dev/null; exit 0",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
