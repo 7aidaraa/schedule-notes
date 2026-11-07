@@ -5,8 +5,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ \"$CLAUDE_CODE_REMOTE\" = \"true\" ] && curl -s -m 15 \"https://api.callmebot.com/text.php?user=@Haidaraa313&text=Claude+Code+finished\" > /dev/null; exit 0",
-            "timeout": 30
+            "command": "[ \"$CLAUDE_CODE_REMOTE\" = \"true\" ] || exit 0; r=$(curl -s -m 60 \"https://api.callmebot.com/start.php?user=@Haidaraa313&text=Claude+Code+finished\"); { [ -z \"$r\" ] || echo \"$r\" | grep -qiE \"error|oops|too many\"; } && curl -s -m 15 \"https://api.callmebot.com/text.php?user=@Haidaraa313&text=Claude+Code+finished\" > /dev/null; exit 0",
+            "timeout": 90,
+            "async": true
           }
         ]
       }
@@ -17,8 +18,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ \"$CLAUDE_CODE_REMOTE\" = \"true\" ] && curl -s -m 15 \"https://api.callmebot.com/text.php?user=@Haidaraa313&text=Claude+Code+needs+your+approval\" > /dev/null; exit 0",
-            "timeout": 30
+            "command": "[ \"$CLAUDE_CODE_REMOTE\" = \"true\" ] || exit 0; r=$(curl -s -m 60 \"https://api.callmebot.com/start.php?user=@Haidaraa313&text=Claude+Code+needs+your+approval\"); { [ -z \"$r\" ] || echo \"$r\" | grep -qiE \"error|oops|too many\"; } && curl -s -m 15 \"https://api.callmebot.com/text.php?user=@Haidaraa313&text=Claude+Code+needs+your+approval\" > /dev/null; exit 0",
+            "timeout": 90,
+            "async": true
           }
         ]
       }
