@@ -56,7 +56,6 @@
 | الواجهة (موقع ثابت) | `web/index.html` + `web/grid.js` (الشبكة ⇄ صفوف الشيت، بلا DOM) + `web/app.js` + `web/tasks.js` («مهام سريعة») + `web/assets/` (خط Plex Arabic، أيقونة تقويم) |
 | الخادم | `supabase/functions/api/index.ts` (Edge Function واحدة، `verify_jwt=false`، التحقق بكلمتي السر) |
 | مستورد الشيت | `tools/import_from_platform.gs` (يلصقه صاحب الشيت في ملفه) |
-| للحذف | `_للحذف/` (ما لا حاجة إليه، بفهرس أسبابه؛ ينتظر إذن الحذف النهائي) |
 | الحراس | `tools/guards.py` (حارس الحجم `tools/size_guard.py` + «لا يعود المحذوف» + فحص صياغة JS) |
 
 ### Supabase (project id: `zywdedrtcaolsosufoae`)
